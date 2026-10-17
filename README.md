@@ -199,10 +199,10 @@ O Manual do Usuário será adicionado em PDF à pasta de documentação do proje
 
 | Cargo | Nome | GitHub |
 | :---: | :--: | :----: |
-| Scrum Master | Gabriel Teodoro | [GitHub](https://github.com/teodoroooo) |
+| Scrum Master | Matheus Soldesi | [GitHub](https://github.com/teodoroooo) |
 | Product Owner | Heloisa Cardillo | [GitHub](https://github.com/heloisa-cardillo) |
 | Dev Team | Gabrielly Neu dos Santos | [GitHub](https://github.com/gabriellyneu) |
 | Dev Team | Kaique Silva | [GitHub](https://github.com/kaiquehsp) |
 | Dev Team | Manuela Castro | [GitHub](https://github.com/manuelalemes) |
 | Dev Team | Pedro Claudino Nunes | [GitHub](https://github.com/PEClaudino2006) |
-| Dev Team | Matheus Soldesi | [GitHub](https://github.com/Soldesi) |
+| Dev Team | Gabriel Teodoro | [GitHub](https://github.com/Soldesi) |
