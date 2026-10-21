@@ -1,0 +1,70 @@
+name: Backend CI
+
+# Roda a cada push, em qualquer branch, e em todo pull request (RNF08, RP09, RP10).
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: Backend
+
+jobs:
+  quality:
+    name: Lint, tipos, build e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Formatação (Prettier)
+        run: npm run format:check
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Checagem de tipos
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Testes automatizados
+        run: npm run test:coverage
+
+      - name: Auditoria de dependências de produção
+        run: npm audit --omit=dev --audit-level=high
+
+  docker:
+    name: Build da imagem Docker
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build da imagem (sem publicar)
+        uses: docker/build-push-action@v7
+        with:
+          context: Backend
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
