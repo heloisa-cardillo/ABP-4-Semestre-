@@ -8,12 +8,13 @@ import { getAuth } from '../shared/auth-context.js';
 export function authController(auth: AuthService, users: UserService) {
   const login: RequestHandler = async (req, res) => {
     const { email, password } = loginSchema.parse(req.body);
-    res.json(await auth.login(email, password));
+    // Resposta com tokens não pode ficar em cache de proxy nem do aparelho.
+    res.set('Cache-Control', 'no-store').json(await auth.login(email, password));
   };
 
   const refresh: RequestHandler = async (req, res) => {
     const { refreshToken } = refreshTokenSchema.parse(req.body);
-    res.json(await auth.refresh(refreshToken));
+    res.set('Cache-Control', 'no-store').json(await auth.refresh(refreshToken));
   };
 
   const logout: RequestHandler = async (req, res) => {
