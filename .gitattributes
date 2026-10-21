@@ -1,0 +1,7 @@
+# Fim de linha LF no repositório inteiro: evita diff fantasma e falha do Prettier no CI
+# para quem desenvolve no Windows.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary
+*.mp4 binary
