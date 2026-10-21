@@ -1,6 +1,8 @@
 # Ambiente local completo: API, PostgreSQL e broker MQTT.
 # Uso: docker compose up --build   (API em http://localhost:3000/api/v1/docs)
 # As portas ficam presas ao 127.0.0.1: nada aqui é exposto para a rede.
+# Para testar o app Flutter num celular físico na mesma rede: API_BIND=0.0.0.0 docker compose up
+# e use http://<IP do computador>:3000 no app (o emulador Android usa http://10.0.2.2:3000).
 
 name: controle-acesso
 
@@ -12,7 +14,7 @@ services:
       PORT: 3000
       LOG_LEVEL: info
     ports:
-      - '127.0.0.1:3000:3000'
+      - '${API_BIND:-127.0.0.1}:3000:3000'
     depends_on:
       postgres:
         condition: service_healthy
