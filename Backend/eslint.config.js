@@ -26,9 +26,15 @@ export default defineConfig(
     files: ['tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
     },
+  },
+  {
+    files: ['prisma/seed.ts'],
+    rules: { 'no-console': 'off' },
   },
   prettier,
 );
