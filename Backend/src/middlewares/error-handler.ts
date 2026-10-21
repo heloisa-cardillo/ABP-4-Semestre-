@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
+import { ZodError } from 'zod';
 import { AppError } from '../shared/app-error.js';
 
 export const notFoundHandler: RequestHandler = (req, _res, next) => {
@@ -16,6 +17,21 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, req, res, _next)
         code: err.code,
         message: err.message,
         ...(err.details === undefined ? {} : { details: err.details }),
+      },
+    });
+    return;
+  }
+
+  // Os controllers validam a entrada com `schema.parse`; a falha chega aqui.
+  if (err instanceof ZodError) {
+    res.status(400).json({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Dados inválidos.',
+        details: err.issues.map((issue) => ({
+          field: issue.path.join('.'),
+          message: issue.message,
+        })),
       },
     });
     return;
