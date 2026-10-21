@@ -2,6 +2,8 @@ import { OpenAPIRegistry, OpenApiGeneratorV31 } from '@asteasolutions/zod-to-ope
 import { z } from 'zod';
 import { documentAuthRoutes } from '../routes/auth.routes.js';
 import { documentHealthRoutes } from '../routes/health.routes.js';
+import { documentLocationRoutes } from '../routes/locations.routes.js';
+import { documentTerminalRoutes } from '../routes/terminals.routes.js';
 import { documentUserRoutes } from '../routes/users.routes.js';
 
 export const errorResponseSchema = z
@@ -35,10 +37,18 @@ export function buildOpenApiDocument() {
     scheme: 'bearer',
     bearerFormat: 'JWT',
   });
+  registry.registerComponent('securitySchemes', 'terminalAuth', {
+    type: 'apiKey',
+    in: 'header',
+    name: 'Authorization',
+    description: 'Credencial do dispositivo: `Terminal <id>.<segredo>`.',
+  });
 
   documentHealthRoutes(registry);
   documentAuthRoutes(registry);
   documentUserRoutes(registry);
+  documentLocationRoutes(registry);
+  documentTerminalRoutes(registry);
 
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',
