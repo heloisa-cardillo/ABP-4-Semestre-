@@ -21,7 +21,7 @@ export const sessionSchema = z
     expiresIn: z.number().int().meta({ description: 'Segundos até o accessToken expirar.' }),
     refreshToken: z.string().meta({
       description:
-        'Token opaco para renovar a sessão. Guardar no SecureStore. Cada renovação devolve um novo; o anterior deixa de valer.',
+        'Token opaco para renovar a sessão. Guardar no armazenamento seguro do aparelho (flutter_secure_storage). Cada renovação devolve um novo; o anterior deixa de valer.',
     }),
     user: publicUserSchema,
   })

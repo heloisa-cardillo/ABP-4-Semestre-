@@ -86,9 +86,9 @@ A dependência aponta para dentro: rota → controller → service → repositor
 | `GET /auth/me`       | autenticado  | Dados do usuário logado                              |
 | `/users` (CRUD)      | só **ADMIN** | Cadastro de administradores, condôminos e visitantes |
 
-Fluxo no app:
+Fluxo no app (Flutter):
 
-1. `POST /auth/login` devolve `accessToken` (JWT, 15 min) e `refreshToken` (7 dias). Guarde os dois no **SecureStore**.
+1. `POST /auth/login` devolve `accessToken` (JWT, 15 min) e `refreshToken` (7 dias). Guarde os dois no armazenamento seguro do aparelho (pacote **`flutter_secure_storage`**: Keychain no iOS, Keystore no Android), nunca em `shared_preferences`.
 2. Envie `Authorization: Bearer <accessToken>` em toda chamada.
 3. Recebeu `401` com `code: "TOKEN_EXPIRED"`? Chame `POST /auth/refresh` **uma vez** e repita a chamada com o token novo. Cada renovação devolve um refresh token novo; o anterior deixa de valer.
 4. **Nunca** faça duas renovações ao mesmo tempo com o mesmo token: o reuso é tratado como roubo de token e encerra a sessão (`REFRESH_TOKEN_REUSED`).
