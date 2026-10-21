@@ -189,6 +189,19 @@ describe('PATCH /locations/:id', () => {
     expect(address.body.error.code).toBe('ADDRESS_REQUIRED');
   });
 
+  it.each([
+    ['latitude nula com longitude preenchida', { latitude: null, longitude: -45.9 }],
+    ['latitude preenchida com longitude nula', { latitude: -23.3, longitude: null }],
+  ])('recusa %s com 400, mesmo em nível sem coordenada obrigatória', async (_case, body) => {
+    const { doorId } = await createTree();
+    const res = await request(app)
+      .patch(`/api/v1/locations/${doorId}`)
+      .set('Authorization', auth)
+      .send(body);
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
   it('não aceita mudar tipo nem local de cima', async () => {
     const { doorId, gatehouseId } = await createTree();
     const res = await request(app)

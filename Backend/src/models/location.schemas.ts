@@ -14,8 +14,10 @@ const addressSchema = z.string().trim().min(5, 'Informe o endereço completo.').
 const latitudeSchema = z.number().min(-90).max(90).meta({ example: -23.305 });
 const longitudeSchema = z.number().min(-180).max(180).meta({ example: -45.9658 });
 
+/** Latitude e longitude andam juntas: as duas informadas, as duas nulas ou as duas ausentes. */
 const coordinatesTogether = (input: { latitude?: unknown; longitude?: unknown }) =>
-  (input.latitude === undefined) === (input.longitude === undefined);
+  (input.latitude === undefined) === (input.longitude === undefined) &&
+  (input.latitude === null) === (input.longitude === null);
 const coordinatesMessage = {
   message: 'Informe latitude e longitude juntas.',
   path: ['latitude'],
