@@ -89,7 +89,7 @@ Datas das reviews: Sprint 1 em 21/10, Sprint 2 em 11/11 e Sprint 3 em 25/11, sem
 <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white&color=043873">
 <img src="https://img.shields.io/badge/Express-000000?style=for-the-badge&logo=express&logoColor=white&color=043873">
 <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white&color=043873">
-<img src="https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white&color=043873">
+<img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white&color=043873">
 <img src="https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white&color=043873">
 <img src="https://img.shields.io/badge/ESP32-E7352C?style=for-the-badge&logo=espressif&logoColor=white&color=043873">
 <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white&color=043873">
@@ -199,10 +199,10 @@ O Manual do Usuário será adicionado em PDF à pasta de documentação do proje
 
 | Cargo | Nome | GitHub |
 | :---: | :--: | :----: |
-| Scrum Master | Matheus Soldesi | [GitHub](https://github.com/teodoroooo) |
+| Scrum Master | Matheus Soldesi | [GitHub](https://github.com/Soldesi) |
 | Product Owner | Heloisa Cardillo | [GitHub](https://github.com/heloisa-cardillo) |
 | Dev Team | Gabrielly Neu dos Santos | [GitHub](https://github.com/gabriellyneu) |
 | Dev Team | Kaique Silva | [GitHub](https://github.com/kaiquehsp) |
 | Dev Team | Manuela Castro | [GitHub](https://github.com/manuelalemes) |
 | Dev Team | Pedro Claudino Nunes | [GitHub](https://github.com/PEClaudino2006) |
-| Dev Team | Gabriel Teodoro | [GitHub](https://github.com/Soldesi) |
+| Dev Team | Gabriel Teodoro | [GitHub](https://github.com/teodoroooo) |
