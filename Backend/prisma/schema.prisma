@@ -32,7 +32,11 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  refreshTokens RefreshToken[]
+  refreshTokens           RefreshToken[]
+  authorizations          Authorization[] @relation("AuthorizationHolder")
+  createdAuthorizations   Authorization[] @relation("AuthorizationCreatedBy")
+  cancelledAuthorizations Authorization[] @relation("AuthorizationCancelledBy")
+  events                  AccessEvent[]
 
   @@index([role])
   @@map("users")
@@ -54,4 +58,153 @@ model RefreshToken {
   @@index([userId])
   @@index([familyId])
   @@map("refresh_tokens")
+}
+
+/// Níveis da hierarquia de locais (RF02): Edifício › Portaria › Porta › Catraca.
+enum LocationType {
+  BUILDING
+  GATEHOUSE
+  DOOR
+  TURNSTILE
+}
+
+/// Local controlado. Cada nível aponta para o nível de cima; o edifício é a raiz.
+model Location {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  type        LocationType
+  name        String       @db.VarChar(120)
+  description String?      @db.VarChar(500)
+  /// Endereço do edifício.
+  address     String?      @db.VarChar(255)
+  /// Coordenadas em graus decimais (WGS 84). Obrigatórias no edifício e na catraca:
+  /// é contra a catraca que o backend mede a distância do celular (RF13).
+  latitude    Float?
+  longitude   Float?
+  parentId    String?      @map("parent_id") @db.Uuid
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  parent         Location?       @relation("LocationTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children       Location[]      @relation("LocationTree")
+  terminal       Terminal?
+  authorizations Authorization[]
+  events         AccessEvent[]
+
+  @@index([parentId])
+  @@index([type])
+  @@map("locations")
+}
+
+/// Terminal de acesso (ESP32) instalado em uma catraca, com credencial própria do dispositivo.
+model Terminal {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  name       String    @db.VarChar(120)
+  /// Uma catraca tem no máximo um terminal.
+  locationId String    @unique @map("location_id") @db.Uuid
+  /// SHA-256 do segredo do dispositivo. O segredo só aparece uma vez, quando é gerado.
+  secretHash String    @map("secret_hash") @db.Char(64)
+  active     Boolean   @default(true)
+  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  location Location      @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  events   AccessEvent[]
+
+  @@map("terminals")
+}
+
+enum AuthorizationStatus {
+  ACTIVE
+  CANCELLED
+}
+
+/// Autorização de acesso (RF03): quem, onde, de quando a quando, em que horário e quantas vezes.
+/// Vale para o local indicado e para tudo abaixo dele na hierarquia.
+model Authorization {
+  id            String              @id @default(uuid(7)) @db.Uuid
+  userId        String              @map("user_id") @db.Uuid
+  locationId    String              @map("location_id") @db.Uuid
+  startDate     DateTime            @map("start_date") @db.Date
+  endDate       DateTime            @map("end_date") @db.Date
+  /// Janela diária, no horário local do edifício.
+  startTime     DateTime            @map("start_time") @db.Time(0)
+  endTime       DateTime            @map("end_time") @db.Time(0)
+  /// Quantidade de utilizações permitidas. Nulo = sem limite (ex.: condômino).
+  maxUses       Int?                @map("max_uses")
+  usesCount     Int                 @default(0) @map("uses_count")
+  status        AuthorizationStatus @default(ACTIVE)
+  createdById   String              @map("created_by_id") @db.Uuid
+  cancelledAt   DateTime?           @map("cancelled_at") @db.Timestamptz(3)
+  cancelledById String?             @map("cancelled_by_id") @db.Uuid
+  cancelReason  String?             @map("cancel_reason") @db.VarChar(500)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user        User          @relation("AuthorizationHolder", fields: [userId], references: [id], onDelete: Restrict)
+  location    Location      @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  createdBy   User          @relation("AuthorizationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  cancelledBy User?         @relation("AuthorizationCancelledBy", fields: [cancelledById], references: [id], onDelete: Restrict)
+  events      AccessEvent[]
+
+  @@index([userId, status])
+  @@index([locationId])
+  @@map("authorizations")
+}
+
+enum AccessMethod {
+  QR
+  NFC
+}
+
+enum AccessResult {
+  GRANTED
+  DENIED
+}
+
+/// Motivo da negação, para o histórico e para a mensagem no app e no terminal (RF16, RF17).
+enum DenyReason {
+  INVALID_CREDENTIAL
+  EXPIRED_CREDENTIAL
+  CREDENTIAL_ALREADY_USED
+  UNKNOWN_USER
+  USER_INACTIVE
+  TERMINAL_INACTIVE
+  NO_AUTHORIZATION
+  AUTHORIZATION_CANCELLED
+  OUTSIDE_DATE_RANGE
+  OUTSIDE_TIME_WINDOW
+  USAGE_LIMIT_REACHED
+  OUT_OF_RANGE
+}
+
+/// Toda tentativa de acesso, liberada ou negada (RF06, RF17). Imutável: o banco recusa UPDATE e DELETE.
+model AccessEvent {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  occurredAt      DateTime     @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  method          AccessMethod
+  result          AccessResult
+  denyReason      DenyReason?  @map("deny_reason")
+  /// Nulo quando a credencial não identificou ninguém (ex.: tag NFC desconhecida).
+  userId          String?      @map("user_id") @db.Uuid
+  terminalId      String?      @map("terminal_id") @db.Uuid
+  locationId      String?      @map("location_id") @db.Uuid
+  authorizationId String?      @map("authorization_id") @db.Uuid
+  /// Identificação da credencial apresentada: UID da tag NFC ou nonce do QR.
+  credential      String?      @db.VarChar(128)
+  /// Posição do celular na leitura do QR e distância calculada até a catraca.
+  latitude        Float?
+  longitude       Float?
+  distanceMeters  Float?       @map("distance_meters")
+
+  user          User?          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  terminal      Terminal?      @relation(fields: [terminalId], references: [id], onDelete: Restrict)
+  location      Location?      @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  authorization Authorization? @relation(fields: [authorizationId], references: [id], onDelete: Restrict)
+
+  @@index([occurredAt(sort: Desc)])
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([locationId, occurredAt(sort: Desc)])
+  @@map("access_events")
 }
