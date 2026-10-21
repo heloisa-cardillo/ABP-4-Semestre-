@@ -4,7 +4,7 @@ import type { AppContainer } from '../container.js';
 import { authController } from '../controllers/auth.controller.js';
 import { errorResponse, json } from '../docs/openapi.js';
 import { authenticate } from '../middlewares/authenticate.js';
-import { loginRateLimit } from '../middlewares/rate-limit.js';
+import { loginRateLimit, sessionRateLimit } from '../middlewares/rate-limit.js';
 import { loginSchema, refreshTokenSchema, sessionSchema } from '../models/auth.schemas.js';
 import { publicUserSchema } from '../models/user.schemas.js';
 
@@ -13,8 +13,9 @@ export function authRoutes({ env, services, tokens }: AppContainer): Router {
   const controller = authController(services.auth, services.users);
 
   router.post('/auth/login', loginRateLimit(env.AUTH_RATE_LIMIT_MAX), controller.login);
-  router.post('/auth/refresh', controller.refresh);
-  router.post('/auth/logout', controller.logout);
+  const sessionLimit = sessionRateLimit(env.SESSION_RATE_LIMIT_MAX);
+  router.post('/auth/refresh', sessionLimit, controller.refresh);
+  router.post('/auth/logout', sessionLimit, controller.logout);
   router.get('/auth/me', authenticate(tokens), controller.me);
 
   return router;
@@ -42,11 +43,12 @@ export function documentAuthRoutes(registry: OpenAPIRegistry): void {
     tags: ['Autenticação'],
     summary: 'Renova a sessão',
     description:
-      'Troca o refresh token por uma sessão nova. O token enviado deixa de valer; reenviá-lo encerra a sessão (REFRESH_TOKEN_REUSED). O app deve fazer uma renovação por vez.',
+      'Troca o refresh token por uma sessão nova. O token enviado deixa de valer; reenviá-lo encerra a sessão (REFRESH_TOKEN_REUSED). O app deve fazer uma renovação por vez. Limitado a 100 chamadas (renovação + logout) por IP a cada 15 minutos.',
     request: { body: json(refreshTokenSchema) },
     responses: {
       200: { description: 'Sessão renovada', ...json(sessionSchema) },
       401: errorResponse('Token inválido, expirado ou reutilizado'),
+      429: errorResponse('Muitas tentativas (TOO_MANY_REQUESTS)'),
     },
   });
 
@@ -56,7 +58,10 @@ export function documentAuthRoutes(registry: OpenAPIRegistry): void {
     tags: ['Autenticação'],
     summary: 'Encerra a sessão deste aparelho',
     request: { body: json(refreshTokenSchema) },
-    responses: { 204: { description: 'Sessão encerrada' } },
+    responses: {
+      204: { description: 'Sessão encerrada' },
+      429: errorResponse('Muitas tentativas (TOO_MANY_REQUESTS)'),
+    },
   });
 
   registry.registerPath({

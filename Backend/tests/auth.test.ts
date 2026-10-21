@@ -201,6 +201,21 @@ describe('POST /auth/refresh', () => {
   });
 });
 
+describe('limite de renovação e logout', () => {
+  it('responde 429 depois do limite por IP, somando renovação e logout', async () => {
+    const limited = createTestContext({ SESSION_RATE_LIMIT_MAX: '2' });
+    const body = { refreshToken: 'z'.repeat(43) };
+
+    expect((await request(limited.app).post('/api/v1/auth/refresh').send(body)).status).toBe(401);
+    expect((await request(limited.app).post('/api/v1/auth/logout').send(body)).status).toBe(204);
+    const blocked = await request(limited.app).post('/api/v1/auth/refresh').send(body);
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error.code).toBe('TOO_MANY_REQUESTS');
+    await limited.container.prisma.$disconnect();
+  });
+});
+
 describe('POST /auth/logout', () => {
   it('encerra a sessão: o refresh token deixa de valer', async () => {
     const user = await createUser(ctx);

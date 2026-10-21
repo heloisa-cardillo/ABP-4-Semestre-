@@ -96,4 +96,4 @@ Fluxo no app (Flutter):
 
 Perfis: `ADMIN` (administrador), `RESIDENT` (condômino), `VISITOR` (visitante). Trocar senha ou perfil, ou desativar o usuário, encerra as sessões abertas dele.
 
-Segurança: senha com Argon2id (parâmetros do OWASP); refresh token guardado só como hash SHA-256; login limitado a 10 tentativas por IP e e-mail a cada 15 minutos; resposta idêntica para e-mail inexistente e senha errada.
+Segurança: senha com Argon2id (parâmetros do OWASP); refresh token guardado só como hash SHA-256; login limitado a 10 tentativas por IP e e-mail a cada 15 minutos, e renovação + logout a 100 chamadas por IP; resposta idêntica para e-mail inexistente e senha errada.
