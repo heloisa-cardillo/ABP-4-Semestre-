@@ -1,0 +1,48 @@
+# Ambiente local completo: API, PostgreSQL e broker MQTT.
+# Uso: docker compose up --build   (API em http://localhost:3000/api/v1/docs)
+# As portas ficam presas ao 127.0.0.1: nada aqui é exposto para a rede.
+
+name: controle-acesso
+
+services:
+  api:
+    build: ./Backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      LOG_LEVEL: info
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: acesso
+      POSTGRES_PASSWORD: acesso_dev
+      POSTGRES_DB: controle_acesso
+    ports:
+      - '127.0.0.1:5432:5432'
+    # A partir do PostgreSQL 18 o volume é montado em /var/lib/postgresql (não mais em .../data).
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U acesso -d controle_acesso']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - '127.0.0.1:1883:1883'
+    volumes:
+      - ./Backend/docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+volumes:
+  pgdata:
