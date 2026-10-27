@@ -15,6 +15,8 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
   final _horarioInicial = TextEditingController();
   final _horarioFinal = TextEditingController();
 
+  bool _visitante = false;
+
   @override
   void dispose() {
     _dataInicio.dispose();
@@ -44,6 +46,45 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
       hint: Text(hint),
       items: const [],
       onChanged: (_) {},
+    );
+  }
+
+  Widget _texto(
+    String rotulo, {
+    bool senha = false,
+    TextInputType teclado = TextInputType.text,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _rotulo(rotulo),
+        TextField(
+          obscureText: senha,
+          keyboardType: teclado,
+          style: const TextStyle(fontSize: 16, color: Cores.texto),
+        ),
+      ],
+    );
+  }
+
+  Widget _opcao(String texto, bool selecionada, VoidCallback aoTocar) {
+    return Expanded(
+      child: InkWell(
+        onTap: aoTocar,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          alignment: Alignment.center,
+          color: selecionada ? Cores.azul2 : Colors.white,
+          child: Text(
+            texto,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: selecionada ? Colors.white : Cores.azul2,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -106,7 +147,36 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _rotulo('Pessoa autorizada'),
-                _seletor('Selecione a pessoa'),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Cores.azul2, width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Row(
+                    children: [
+                      _opcao(
+                        'Condômino',
+                        !_visitante,
+                        () => setState(() => _visitante = false),
+                      ),
+                      _opcao(
+                        'Visitante novo',
+                        _visitante,
+                        () => setState(() => _visitante = true),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_visitante) ...[
+                  _texto('Nome'),
+                  _texto('E-mail', teclado: TextInputType.emailAddress),
+                  _texto('Senha', senha: true),
+                  _texto('Código da tag NFC'),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  _seletor('Selecione o condômino'),
+                ],
                 _rotulo('Local de acesso'),
                 _seletor('Selecione o local'),
                 Row(

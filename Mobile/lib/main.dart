@@ -36,7 +36,12 @@ class Principal extends StatefulWidget {
 
 class _PrincipalState extends State<Principal> {
   static const _abasUsuario = ['Autorizações', 'Ler QR Code'];
-  static const _abasAdmin = ['Autorizações', 'Nova', 'Cadastros', 'Histórico'];
+  static const _abasAdmin = [
+    'Autorizações',
+    'Nova autorização',
+    'Cadastros',
+    'Histórico',
+  ];
 
   Perfil? _perfil;
   int _aba = 0;
@@ -82,9 +87,11 @@ class _PrincipalState extends State<Principal> {
                     onTap: () => setState(() => _aba = i),
                     child: Container(
                       alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
                       color: i == _aba ? Cores.claro : Colors.white,
                       child: Text(
                         abas[i],
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
