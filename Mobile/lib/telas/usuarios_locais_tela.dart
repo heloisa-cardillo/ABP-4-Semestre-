@@ -74,27 +74,40 @@ class _UsuariosLocaisTelaState extends State<UsuariosLocaisTela> {
     );
   }
 
-  List<Widget> _camposPessoa() {
+  List<Widget> _camposPessoa({required bool comTag}) {
     return [
       _campo('Nome'),
       _campo('E-mail', teclado: TextInputType.emailAddress),
       _campo('Senha', senha: true),
+      if (comTag) _campo('Código da tag NFC'),
     ];
   }
 
-  List<Widget> _camposLocal() {
+  List<Widget> _camposLocal(String? tipo, ValueChanged<String?> aoMudarTipo) {
     const numero = TextInputType.numberWithOptions(decimal: true, signed: true);
+    final temLocalDeCima = tipo != null && tipo != 'Edifício';
+
     return [
       _rotulo('Tipo'),
       DropdownButtonFormField<String>(
         isExpanded: true,
+        initialValue: tipo,
         hint: const Text('Selecione o tipo'),
         items: [
-          for (final tipo in _tiposLocal)
-            DropdownMenuItem(value: tipo, child: Text(tipo)),
+          for (final t in _tiposLocal)
+            DropdownMenuItem(value: t, child: Text(t)),
         ],
-        onChanged: (_) {},
+        onChanged: aoMudarTipo,
       ),
+      if (temLocalDeCima) ...[
+        _rotulo('Local de cima'),
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          hint: const Text('Selecione o local'),
+          items: const [],
+          onChanged: (_) {},
+        ),
+      ],
       _campo('Nome'),
       _campo('Endereço'),
       _campo('Latitude', teclado: numero),
@@ -103,40 +116,52 @@ class _UsuariosLocaisTelaState extends State<UsuariosLocaisTela> {
   }
 
   void _abrirModal() {
-    final campos = _abaAtual == 2 ? _camposLocal() : _camposPessoa();
+    final aba = _abaAtual;
+    String? tipo;
 
     showDialog<void>(
       context: context,
       builder: (contexto) {
-        return AlertDialog(
-          title: Text(
-            _botoes[_abaAtual],
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Cores.azul,
-            ),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: campos,
+        return StatefulBuilder(
+          builder: (contexto, setModal) {
+            final List<Widget> campos;
+            if (aba == 2) {
+              campos = _camposLocal(tipo, (v) => setModal(() => tipo = v));
+            } else {
+              campos = _camposPessoa(comTag: aba == 0);
+            }
+
+            return AlertDialog(
+              title: Text(
+                _botoes[aba],
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Cores.azul,
+                ),
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(contexto).pop(),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(contexto).pop(),
-              child: const Text('Salvar'),
-            ),
-          ],
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: campos,
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(contexto).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(contexto).pop(),
+                  child: const Text('Salvar'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
