@@ -19,9 +19,9 @@ export const passwordSchema = z
   .min(8, 'A senha precisa ter ao menos 8 caracteres.')
   .max(128, 'A senha pode ter no máximo 128 caracteres.');
 
-const nameSchema = z.string().trim().min(2, 'Informe o nome.').max(120);
+export const nameSchema = z.string().trim().min(2, 'Informe o nome.').max(120);
 
-const phoneSchema = z
+export const phoneSchema = z
   .string()
   .trim()
   .regex(/^\+?\d{10,15}$/, 'Telefone com DDD, só números (ex.: 12988887777).');
