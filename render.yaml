@@ -1,0 +1,29 @@
+# Blueprint do Render para a API em homologação (US9).
+# Criar no painel: New > Blueprint > selecione este repositório.
+# O deploy é disparado pelo GitHub Actions depois do CI passar (autoDeploy desligado).
+services:
+  - type: web
+    name: controle-acesso-api-homolog
+    runtime: docker
+    plan: free
+    region: virginia
+    branch: desenvolvimento
+    rootDir: Backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: false
+    healthCheckPath: /api/v1/health/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: TRUST_PROXY
+        value: "1"
+      - key: BUILDING_TIMEZONE
+        value: America/Sao_Paulo
+      - key: JWT_SECRET
+        generateValue: true
+      # URL do PostgreSQL no Neon, com ?sslmode=require. Preencher no painel do Render.
+      - key: DATABASE_URL
+        sync: false
