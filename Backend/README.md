@@ -88,16 +88,18 @@ A dependência aponta para dentro: rota → controller → service → repositor
 
 ## Autenticação (para quem consome a API)
 
-| Rota                 | Quem         | O que faz                                              |
-| -------------------- | ------------ | ------------------------------------------------------ |
-| `POST /auth/login`   | público      | E-mail e senha → sessão                                |
-| `POST /auth/refresh` | público      | Troca o refresh token por uma sessão nova              |
-| `POST /auth/logout`  | público      | Encerra a sessão do aparelho                           |
-| `GET /auth/me`       | autenticado  | Dados do usuário logado                                |
-| `/users` (CRUD)      | só **ADMIN** | Cadastro de administradores, condôminos e visitantes   |
-| `/locations` (CRUD)  | só **ADMIN** | Edifício › Portaria › Porta › Catraca, com coordenadas |
-| `/terminals` (CRUD)  | só **ADMIN** | Terminais nas catracas e credencial do dispositivo     |
-| `GET /terminals/me`  | **terminal** | O dispositivo confere a credencial e onde está         |
+| Rota                     | Quem         | O que faz                                              |
+| ------------------------ | ------------ | ------------------------------------------------------ |
+| `POST /auth/login`       | público      | E-mail e senha → sessão                                |
+| `POST /auth/refresh`     | público      | Troca o refresh token por uma sessão nova              |
+| `POST /auth/logout`      | público      | Encerra a sessão do aparelho                           |
+| `GET /auth/me`           | autenticado  | Dados do usuário logado                                |
+| `/users` (CRUD)          | só **ADMIN** | Cadastro de administradores, condôminos e visitantes   |
+| `/locations` (CRUD)      | só **ADMIN** | Edifício › Portaria › Porta › Catraca, com coordenadas |
+| `/terminals` (CRUD)      | só **ADMIN** | Terminais nas catracas e credencial do dispositivo     |
+| `GET /terminals/me`      | **terminal** | O dispositivo confere a credencial e onde está         |
+| `/authorizations`        | só **ADMIN** | Cria, lista com filtros, busca e cancela autorizações  |
+| `GET /me/authorizations` | autenticado  | Autorizações da própria pessoa logada                  |
 
 Fluxo no app (Flutter):
 
@@ -110,6 +112,36 @@ Fluxo no app (Flutter):
 Perfis: `ADMIN` (administrador), `RESIDENT` (condômino), `VISITOR` (visitante). Trocar senha ou perfil, ou desativar o usuário, encerra as sessões abertas dele.
 
 Segurança: senha com Argon2id (parâmetros do OWASP); refresh token guardado só como hash SHA-256; login limitado a 10 tentativas por IP e e-mail a cada 15 minutos, e renovação + logout a 100 chamadas por IP; resposta idêntica para e-mail inexistente e senha errada.
+
+## Autorizações (para o app)
+
+| Rota                               | Uso no app                                                                                                                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /authorizations`             | Tela "Criar autorização". Mande `userId` (condômino já cadastrado) **ou** `visitor: { name, email, password, phone? }` (visitante novo, criado junto com perfil `VISITOR`). |
+| `GET /authorizations`              | Tela de gestão. Filtros: `userId`, `locationId`, `from`/`to` (período: traz as que têm algum dia no intervalo), `situation`, `page`, `pageSize`.                            |
+| `GET /authorizations/{id}`         | Detalhe.                                                                                                                                                                    |
+| `POST /authorizations/{id}/cancel` | Botão "Cancelar". Corpo opcional `{ "reason": "..." }`. Cancelar de novo: `409 ALREADY_CANCELLED`.                                                                          |
+| `GET /me/authorizations`           | Tela "Minhas autorizações" do condômino ou visitante. Filtros `situation`, `from`, `to`.                                                                                    |
+
+Exemplo de criação:
+
+```json
+{
+  "userId": "019a...",
+  "locationId": "019a...",
+  "startDate": "2026-11-10",
+  "endDate": "2026-11-30",
+  "startTime": "08:00",
+  "endTime": "18:00",
+  "maxUses": 10
+}
+```
+
+- Datas em `AAAA-MM-DD` e horários em `HH:mm`, **no horário local do edifício** (`BUILDING_TIMEZONE`, padrão `America/Sao_Paulo`).
+- Sem `startTime`/`endTime`, vale o dia inteiro (00:00:00 às 23:59:59). Sem `maxUses`, não há limite de usos.
+- A autorização vale para o local indicado **e para tudo abaixo dele**: autorizar o edifício libera todas as catracas dele.
+- Cada autorização volta com `situation`, calculada na hora: `VALID` (vale hoje), `SCHEDULED` (ainda não começou), `EXPIRED` (terminou), `EXHAUSTED` (usos esgotados) ou `CANCELLED`. Use isso para a etiqueta de situação na tela.
+- Erros de regra (`422`): `END_DATE_IN_PAST`, `USER_NOT_FOUND`, `USER_INACTIVE`, `LOCATION_NOT_FOUND`, `LOCATION_INACTIVE`. E-mail de visitante repetido: `409 EMAIL_IN_USE`.
 
 ## Terminal de acesso (para o firmware)
 
