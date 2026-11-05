@@ -10,9 +10,10 @@ FROM base AS deps
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# Estágio com o Prisma CLI: também é usado pelo compose para aplicar migrations e seed.
 FROM deps AS build
 COPY . .
-RUN npm run build
+RUN npx prisma generate && npm run build
 
 FROM base AS prod-deps
 COPY package.json package-lock.json ./

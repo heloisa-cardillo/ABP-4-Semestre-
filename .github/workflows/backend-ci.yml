@@ -21,6 +21,22 @@ jobs:
     name: Lint, tipos, build e testes
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: acesso
+          POSTGRES_PASSWORD: acesso_dev
+          POSTGRES_DB: controle_acesso_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U acesso -d controle_acesso_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://acesso:acesso_dev@localhost:5432/controle_acesso_test
     steps:
       - uses: actions/checkout@v7
 
@@ -32,6 +48,9 @@ jobs:
 
       - name: Instalar dependências
         run: npm ci
+
+      - name: Gerar o Prisma Client
+        run: npx prisma generate
 
       - name: Formatação (Prettier)
         run: npm run format:check
@@ -45,7 +64,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Testes automatizados
+      - name: Testes automatizados (unitários e de integração com PostgreSQL)
         run: npm run test:coverage
 
       - name: Auditoria de dependências de produção

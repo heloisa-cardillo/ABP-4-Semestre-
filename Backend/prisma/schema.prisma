@@ -1,0 +1,57 @@
+// Modelo de dados do Sistema Integrado de Controle de Acesso.
+// Nomes em inglês no código; tabelas e colunas em snake_case no banco.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Perfis de usuário (RF01).
+enum Role {
+  ADMIN
+  RESIDENT
+  VISITOR
+}
+
+model User {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  name         String   @db.VarChar(120)
+  /// Sempre gravado em minúsculas, para o login não depender de caixa.
+  email        String   @unique @db.VarChar(254)
+  passwordHash String   @map("password_hash")
+  role         Role
+  phone        String?  @db.VarChar(20)
+  /// Usuário desativado não faz login nem renova sessão. Não se apaga usuário: o histórico de acessos aponta para ele.
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  refreshTokens RefreshToken[]
+
+  @@index([role])
+  @@map("users")
+}
+
+/// Refresh token opaco. Só o hash SHA-256 fica no banco; o valor existe apenas no aparelho do usuário.
+/// Tokens da mesma sessão compartilham a família: reuso de um token já trocado derruba a família inteira.
+model RefreshToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  familyId  String    @map("family_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}

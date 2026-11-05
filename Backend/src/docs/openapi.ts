@@ -1,6 +1,8 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import { documentAuthRoutes } from '../routes/auth.routes.js';
 import { documentHealthRoutes } from '../routes/health.routes.js';
+import { documentUserRoutes } from '../routes/users.routes.js';
 
 export const errorResponseSchema = z
   .object({
@@ -12,9 +14,14 @@ export const errorResponseSchema = z
   })
   .meta({ id: 'ErrorResponse' });
 
+/** Corpo JSON de requisição ou resposta, para a documentação das rotas. */
+export function json<T>(schema: T) {
+  return { content: { 'application/json': { schema } } };
+}
+
 /** Resposta de erro padrão, para reaproveitar na documentação das rotas. */
 export function errorResponse(description: string) {
-  return { description, content: { 'application/json': { schema: errorResponseSchema } } };
+  return { description, ...json(errorResponseSchema) };
 }
 
 /**
@@ -23,7 +30,15 @@ export function errorResponse(description: string) {
  */
 export function buildOpenApiDocument() {
   const registry = new OpenAPIRegistry();
+  registry.registerComponent('securitySchemes', 'bearerAuth', {
+    type: 'http',
+    scheme: 'bearer',
+    bearerFormat: 'JWT',
+  });
+
   documentHealthRoutes(registry);
+  documentAuthRoutes(registry);
+  documentUserRoutes(registry);
 
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',

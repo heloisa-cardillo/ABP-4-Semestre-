@@ -18,6 +18,20 @@ const envSchema = z.object({
   CORS_ORIGINS: csv,
   /** Quantidade de proxies confiáveis à frente da API (ex.: 1 atrás do load balancer da nuvem). */
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
+
+  DATABASE_URL: z
+    .string()
+    .regex(/^postgres(ql)?:\/\//, 'deve ser uma URL de conexão postgresql://'),
+
+  /** Segredo de assinatura do JWT de acesso (HS256). */
+  JWT_SECRET: z.string().min(32, 'use ao menos 32 caracteres aleatórios'),
+  /** Vida do JWT de acesso. Curta de propósito: a sessão longa é o refresh token, que pode ser revogado. */
+  JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(7),
+  /** Tentativas de login por IP e e-mail a cada 15 minutos. */
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
+  /** Renovações e logouts por IP a cada 15 minutos. Folgado: uma turma inteira pode sair pelo mesmo IP. */
+  SESSION_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(100),
 });
 
 export type Env = z.infer<typeof envSchema>;

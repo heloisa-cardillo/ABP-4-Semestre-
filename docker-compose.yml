@@ -1,10 +1,13 @@
 # Ambiente local completo: API, PostgreSQL e broker MQTT.
 # Uso: docker compose up --build   (API em http://localhost:3000/api/v1/docs)
+# Dados iniciais: docker compose run --rm migrate npx prisma db seed
 # As portas ficam presas ao 127.0.0.1: nada aqui é exposto para a rede.
 # Para testar o app Flutter num celular físico na mesma rede: API_BIND=0.0.0.0 docker compose up
 # e use http://<IP do computador>:3000 no app (o emulador Android usa http://10.0.2.2:3000).
 
 name: controle-acesso
+
+x-database-url: &database-url postgresql://acesso:acesso_dev@postgres:5432/controle_acesso
 
 services:
   api:
@@ -13,14 +16,31 @@ services:
       NODE_ENV: production
       PORT: 3000
       LOG_LEVEL: info
+      DATABASE_URL: *database-url
+      # Só para uso local. Em homologação/produção o segredo vem do cofre da nuvem.
+      JWT_SECRET: ${JWT_SECRET:-segredo-local-do-docker-compose-troque-em-producao}
     ports:
       - '${API_BIND:-127.0.0.1}:3000:3000'
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       mosquitto:
         condition: service_started
     restart: unless-stopped
+
+  # Aplica as migrations e sai. A API só sobe depois que ele termina sem erro.
+  migrate:
+    build:
+      context: ./Backend
+      target: build
+    command: npx prisma migrate deploy
+    environment:
+      DATABASE_URL: *database-url
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@acesso.local}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin@12345}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   postgres:
     image: postgres:18-alpine
