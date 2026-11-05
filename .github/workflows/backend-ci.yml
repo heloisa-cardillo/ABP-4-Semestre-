@@ -1,0 +1,219 @@
+name: Backend CI
+
+# Roda a cada push, em qualquer branch, e em todo pull request (RNF08, RP09, RP10).
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: Backend
+
+jobs:
+  quality:
+    name: Lint, tipos, build e testes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: acesso
+          POSTGRES_PASSWORD: acesso_dev
+          POSTGRES_DB: controle_acesso_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U acesso -d controle_acesso_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://acesso:acesso_dev@localhost:5432/controle_acesso_test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar o Prisma Client
+        run: npx prisma generate
+
+      - name: Formatação (Prettier)
+        run: npm run format:check
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Checagem de tipos
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Testes automatizados (unitários e de integração com PostgreSQL)
+        run: npm run test:coverage
+
+      - name: Auditoria de dependências de produção
+        run: npm audit --omit=dev --audit-level=high
+
+  docker:
+    name: Build da imagem Docker
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build da imagem (sem publicar)
+        uses: docker/build-push-action@v7
+        with:
+          context: Backend
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Homologação (US9): só depois do CI passar e só em push na branch desenvolvimento.
+  # Configuração (uma vez): Backend/README.md, seção "Deploy em homologação".
+  deploy-homologacao:
+    name: Deploy em homologação
+    needs: [quality, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/desenvolvimento'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment:
+      name: homologacao
+      url: ${{ vars.HOMOLOG_API_URL }}/api/v1/docs
+    concurrency:
+      group: deploy-homologacao
+      cancel-in-progress: false
+    env:
+      API_URL: ${{ vars.HOMOLOG_API_URL }}
+    steps:
+      - name: Conferir a configuração do ambiente
+        # Roda antes do checkout: a pasta Backend ainda não existe.
+        working-directory: .
+        env:
+          DATABASE_URL: ${{ secrets.HOMOLOG_DATABASE_URL }}
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          missing=""
+          [ -n "$DATABASE_URL" ] || missing="$missing HOMOLOG_DATABASE_URL (secret)"
+          [ -n "$DEPLOY_HOOK" ] || missing="$missing RENDER_DEPLOY_HOOK_URL (secret)"
+          [ -n "$API_URL" ] || missing="$missing HOMOLOG_API_URL (variável)"
+          if [ -n "$missing" ]; then
+            echo "::error title=Deploy não configurado::Faltam no environment 'homologacao':$missing. Veja Backend/README.md, seção Deploy em homologação."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar o Prisma Client
+        run: npx prisma generate
+
+      - name: Aplicar as migrations no banco de homologação
+        env:
+          DATABASE_URL: ${{ secrets.HOMOLOG_DATABASE_URL }}
+        run: npx prisma migrate deploy
+
+      # Idempotente: cria o administrador só se ele não existir. Nunca cria os dados de demonstração
+      # aqui, porque o seed de demonstração imprime a credencial do terminal no log.
+      - name: Garantir o usuário administrador
+        env:
+          DATABASE_URL: ${{ secrets.HOMOLOG_DATABASE_URL }}
+          SEED_ADMIN_EMAIL: ${{ vars.HOMOLOG_SEED_ADMIN_EMAIL || 'admin@acesso.local' }}
+          SEED_ADMIN_PASSWORD: ${{ secrets.HOMOLOG_SEED_ADMIN_PASSWORD }}
+        run: |
+          if [ -z "$SEED_ADMIN_PASSWORD" ]; then
+            echo "::notice::HOMOLOG_SEED_ADMIN_PASSWORD não configurado: administrador não verificado."
+            exit 0
+          fi
+          npx prisma db seed
+
+      - name: Disparar o deploy no Render
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: curl -fsS --max-time 30 -X POST "$DEPLOY_HOOK" -o /dev/null
+
+      # O Render gratuito hiberna sem uso: a primeira resposta pode levar ~1 minuto.
+      - name: Aguardar a versão nova no ar
+        run: |
+          version=""
+          for i in $(seq 1 60); do
+            version=$(curl -fsS --max-time 60 "$API_URL/api/v1/health" | jq -r '.version' 2>/dev/null || true)
+            case "$GITHUB_SHA" in
+              "$version"*) [ -n "$version" ] && { echo "Versão $version no ar."; exit 0; } ;;
+            esac
+            echo "[$i/60] no ar: ${version:-sem resposta}. Aguardando $GITHUB_SHA."
+            sleep 15
+          done
+          echo "::error title=Deploy não confirmado::A versão $GITHUB_SHA não subiu em 15 minutos. Veja os logs do serviço no painel do Render."
+          exit 1
+
+      - name: Conferir a conexão com o banco
+        run: curl -fsS --max-time 30 "$API_URL/api/v1/health/ready"
+
+  # Retorno claro do pipeline: tabela com o resultado de cada etapa na página da execução.
+  resumo:
+    name: Resumo do pipeline
+    needs: [quality, docker, deploy-homologacao]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Escrever o resumo
+        env:
+          QUALITY: ${{ needs.quality.result }}
+          DOCKER: ${{ needs.docker.result }}
+          DEPLOY: ${{ needs.deploy-homologacao.result }}
+          API_URL: ${{ vars.HOMOLOG_API_URL }}
+        working-directory: .
+        run: |
+          icon() {
+            case "$1" in
+              success) echo "✅ sucesso" ;;
+              failure) echo "❌ falhou" ;;
+              cancelled) echo "⏹️ cancelado" ;;
+              *) echo "➖ não executado" ;;
+            esac
+          }
+          {
+            echo "## Backend: resultado do pipeline"
+            echo
+            echo "| Etapa | Resultado |"
+            echo "| --- | --- |"
+            echo "| Lint, tipos, build e testes | $(icon "$QUALITY") |"
+            echo "| Imagem Docker | $(icon "$DOCKER") |"
+            echo "| Deploy em homologação | $(icon "$DEPLOY") |"
+            echo
+            if [ "$DEPLOY" = "success" ]; then
+              echo "Homologação no ar: $API_URL/api/v1/docs"
+            elif [ "$DEPLOY" = "skipped" ]; then
+              echo "O deploy só roda em push na branch \`desenvolvimento\`, depois do CI passar."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$QUALITY" != "failure" ] && [ "$DOCKER" != "failure" ] && [ "$DEPLOY" != "failure" ]
