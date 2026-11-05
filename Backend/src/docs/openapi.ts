@@ -1,6 +1,7 @@
 import { OpenAPIRegistry, OpenApiGeneratorV31 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import { documentAuthRoutes } from '../routes/auth.routes.js';
+import { documentAuthorizationRoutes } from '../routes/authorizations.routes.js';
 import { documentHealthRoutes } from '../routes/health.routes.js';
 import { documentLocationRoutes } from '../routes/locations.routes.js';
 import { documentTerminalRoutes } from '../routes/terminals.routes.js';
@@ -49,6 +50,7 @@ export function buildOpenApiDocument() {
   documentUserRoutes(registry);
   documentLocationRoutes(registry);
   documentTerminalRoutes(registry);
+  documentAuthorizationRoutes(registry);
 
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',

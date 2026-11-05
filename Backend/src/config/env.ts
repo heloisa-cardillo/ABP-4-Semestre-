@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidTimeZone } from '../services/local-time.js';
 
 const csv = z
   .string()
@@ -32,6 +33,12 @@ const envSchema = z.object({
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(10),
   /** Renovações e logouts por IP a cada 15 minutos. Folgado: uma turma inteira pode sair pelo mesmo IP. */
   SESSION_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(100),
+
+  /** Fuso do edifício. Datas e horários das autorizações são sempre no horário local dele. */
+  BUILDING_TIMEZONE: z
+    .string()
+    .default('America/Sao_Paulo')
+    .refine(isValidTimeZone, 'fuso inválido (use um nome IANA, ex.: America/Sao_Paulo)'),
 });
 
 export type Env = z.infer<typeof envSchema>;

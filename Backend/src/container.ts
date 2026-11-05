@@ -2,11 +2,14 @@ import type { Logger } from 'pino';
 import { createPrismaClient } from './config/database.js';
 import type { Env } from './config/env.js';
 import type { PrismaClient } from './generated/prisma/client.js';
+import { AuthorizationRepository } from './repositories/authorization.repository.js';
 import { LocationRepository } from './repositories/location.repository.js';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository.js';
 import { TerminalRepository } from './repositories/terminal.repository.js';
 import { UserRepository } from './repositories/user.repository.js';
 import { AuthService } from './services/auth.service.js';
+import { AuthorizationService } from './services/authorization.service.js';
+import { systemClock } from './services/local-time.js';
 import { LocationService } from './services/location.service.js';
 import { PasswordHasher } from './services/password-hasher.js';
 import { TerminalService } from './services/terminal.service.js';
@@ -23,6 +26,7 @@ export interface AppContainer {
     users: UserService;
     locations: LocationService;
     terminals: TerminalService;
+    authorizations: AuthorizationService;
   };
 }
 
@@ -39,6 +43,8 @@ export function createContainer(env: Env, logger: Logger): AppContainer {
   const refreshTokenRepository = new RefreshTokenRepository(prisma);
   const locationRepository = new LocationRepository(prisma);
   const terminalRepository = new TerminalRepository(prisma);
+  const authorizationRepository = new AuthorizationRepository(prisma);
+  const clock = systemClock(env.BUILDING_TIMEZONE);
 
   return {
     env,
@@ -56,6 +62,13 @@ export function createContainer(env: Env, logger: Logger): AppContainer {
       users: new UserService(userRepository, refreshTokenRepository, hasher),
       locations: new LocationService(locationRepository),
       terminals: new TerminalService(terminalRepository, locationRepository),
+      authorizations: new AuthorizationService(
+        authorizationRepository,
+        userRepository,
+        locationRepository,
+        hasher,
+        clock,
+      ),
     },
   };
 }
