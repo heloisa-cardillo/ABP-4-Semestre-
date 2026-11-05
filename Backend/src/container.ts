@@ -2,10 +2,14 @@ import type { Logger } from 'pino';
 import { createPrismaClient } from './config/database.js';
 import type { Env } from './config/env.js';
 import type { PrismaClient } from './generated/prisma/client.js';
+import { LocationRepository } from './repositories/location.repository.js';
 import { RefreshTokenRepository } from './repositories/refresh-token.repository.js';
+import { TerminalRepository } from './repositories/terminal.repository.js';
 import { UserRepository } from './repositories/user.repository.js';
 import { AuthService } from './services/auth.service.js';
+import { LocationService } from './services/location.service.js';
 import { PasswordHasher } from './services/password-hasher.js';
+import { TerminalService } from './services/terminal.service.js';
 import { TokenService } from './services/token.service.js';
 import { UserService } from './services/user.service.js';
 
@@ -17,6 +21,8 @@ export interface AppContainer {
   services: {
     auth: AuthService;
     users: UserService;
+    locations: LocationService;
+    terminals: TerminalService;
   };
 }
 
@@ -31,6 +37,8 @@ export function createContainer(env: Env, logger: Logger): AppContainer {
 
   const userRepository = new UserRepository(prisma);
   const refreshTokenRepository = new RefreshTokenRepository(prisma);
+  const locationRepository = new LocationRepository(prisma);
+  const terminalRepository = new TerminalRepository(prisma);
 
   return {
     env,
@@ -46,6 +54,8 @@ export function createContainer(env: Env, logger: Logger): AppContainer {
         env.REFRESH_TOKEN_TTL_DAYS,
       ),
       users: new UserService(userRepository, refreshTokenRepository, hasher),
+      locations: new LocationService(locationRepository),
+      terminals: new TerminalService(terminalRepository, locationRepository),
     },
   };
 }

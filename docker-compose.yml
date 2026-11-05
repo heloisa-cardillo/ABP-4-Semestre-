@@ -38,6 +38,7 @@ services:
       DATABASE_URL: *database-url
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@acesso.local}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin@12345}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-Demo@12345}
     depends_on:
       postgres:
         condition: service_healthy

@@ -32,4 +32,9 @@ export class AppError extends Error {
   static conflict(code: string, message: string): AppError {
     return new AppError(409, code, message);
   }
+
+  /** Entrada bem formada que fere uma regra de negócio (ex.: catraca fora de uma porta). */
+  static unprocessable(code: string, message: string): AppError {
+    return new AppError(422, code, message);
+  }
 }
