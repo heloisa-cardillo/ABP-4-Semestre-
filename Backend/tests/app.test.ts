@@ -14,6 +14,25 @@ describe('API base', () => {
     expect(typeof res.body.uptimeSeconds).toBe('number');
   });
 
+  it('GET /api/v1/health informa a versão no ar: "dev" quando não há commit configurado', async () => {
+    const res = await request(app).get('/api/v1/health');
+    expect(res.body.version).toBe('dev');
+  });
+
+  it('GET /api/v1/health usa o commit do Render (RENDER_GIT_COMMIT) como versão', async () => {
+    const deployed = createTestContext({ RENDER_GIT_COMMIT: 'abc123def456' });
+    const res = await request(deployed.app).get('/api/v1/health');
+    expect(res.body.version).toBe('abc123def456');
+    await deployed.container.prisma.$disconnect();
+  });
+
+  it('APP_VERSION tem prioridade sobre o commit do Render', async () => {
+    const deployed = createTestContext({ RENDER_GIT_COMMIT: 'abc123', APP_VERSION: '1.2.0' });
+    const res = await request(deployed.app).get('/api/v1/health');
+    expect(res.body.version).toBe('1.2.0');
+    await deployed.container.prisma.$disconnect();
+  });
+
   it('GET /api/v1/health/ready confirma o banco de pé', async () => {
     const res = await request(app).get('/api/v1/health/ready');
     expect(res.status).toBe(200);

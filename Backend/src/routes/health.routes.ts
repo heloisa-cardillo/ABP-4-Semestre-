@@ -5,9 +5,9 @@ import type { AppContainer } from '../container.js';
 import { liveness, readiness } from '../controllers/health.controller.js';
 import { json } from '../docs/openapi.js';
 
-export function healthRoutes({ prisma }: AppContainer): Router {
+export function healthRoutes({ prisma, env }: AppContainer): Router {
   const router = Router();
-  router.get('/health', liveness);
+  router.get('/health', liveness(env.APP_VERSION ?? env.RENDER_GIT_COMMIT ?? 'dev'));
   router.get('/health/ready', readiness(prisma));
   return router;
 }
@@ -21,7 +21,13 @@ export function documentHealthRoutes(registry: OpenAPIRegistry): void {
     responses: {
       200: {
         description: 'API no ar',
-        ...json(z.object({ status: z.literal('ok'), uptimeSeconds: z.number().int() })),
+        ...json(
+          z.object({
+            status: z.literal('ok'),
+            version: z.string().meta({ description: 'Commit em execução, ou "dev" localmente.' }),
+            uptimeSeconds: z.number().int(),
+          }),
+        ),
       },
     },
   });

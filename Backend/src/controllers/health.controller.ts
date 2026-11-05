@@ -1,9 +1,15 @@
 import type { RequestHandler } from 'express';
 import type { PrismaClient } from '../generated/prisma/client.js';
 
-export const liveness: RequestHandler = (_req, res) => {
-  res.json({ status: 'ok', uptimeSeconds: Math.round(process.uptime()) });
-};
+/**
+ * API no ar. `version` diz qual commit está rodando: o pipeline de deploy usa isso
+ * para saber que a versão nova já subiu.
+ */
+export function liveness(version: string): RequestHandler {
+  return (_req, res) => {
+    res.json({ status: 'ok', version, uptimeSeconds: Math.round(process.uptime()) });
+  };
+}
 
 /** Pronta para receber tráfego só se o banco responde. */
 export function readiness(prisma: PrismaClient): RequestHandler {

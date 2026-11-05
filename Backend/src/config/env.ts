@@ -41,6 +41,10 @@ const envSchema = z.object({
     .refine(isValidTimeZone, 'fuso inválido (use um nome IANA, ex.: America/Sao_Paulo)'),
   /** Validade de cada QR Code exibido pelo terminal. O terminal pede um novo nesse intervalo. */
   QR_CODE_TTL_SECONDS: z.coerce.number().int().min(5).max(120).default(10),
+
+  /** Versão exibida em /health. Se vazio, usa o commit que o Render injeta (RENDER_GIT_COMMIT). */
+  APP_VERSION: z.string().trim().min(1).optional(),
+  RENDER_GIT_COMMIT: z.string().trim().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,5 +1,7 @@
 # Backend: API de Controle de Acesso
 
+[![Backend CI](https://github.com/heloisa-cardillo/ABP-4-Semestre-/actions/workflows/backend-ci.yml/badge.svg?branch=desenvolvimento)](https://github.com/heloisa-cardillo/ABP-4-Semestre-/actions/workflows/backend-ci.yml)
+
 API REST em **Node.js + Express + TypeScript** (RP01), com **PostgreSQL** via **Prisma**. Toda decisão de liberar ou negar acesso é tomada aqui; o terminal e o aplicativo só exibem e executam.
 
 ## Como rodar
@@ -182,6 +184,51 @@ Terminal (ESP32)                         API                                   A
 Cada código vale **uma única vez**: duas leituras ao mesmo tempo, só uma passa. Toda leitura é registrada no histórico. A validade é configurável em `QR_CODE_TTL_SECONDS`.
 
 > A decisão (autorização, horário, distância, limite de usos) é do serviço de decisão de acesso (`AccessDecider`, em `src/services/access-decision.ts`). Enquanto ele não estiver ligado no `container.ts`, `POST /access/qr` responde `503 ACCESS_DECISION_UNAVAILABLE`.
+
+## Deploy em homologação
+
+A cada push na branch `desenvolvimento`, o GitHub Actions (`.github/workflows/backend-ci.yml`) roda:
+
+1. **Lint, tipos, build e testes**, e **build da imagem Docker**. Se algo falhar, para aqui.
+2. **Migrations** no banco de homologação (`prisma migrate deploy`) e garante o usuário administrador.
+3. **Deploy no Render**, disparado pelo deploy hook.
+4. **Confirmação:** espera `GET /api/v1/health` responder com `version` igual ao commit e confere o banco em `/health/ready`.
+5. **Resumo** na página da execução, com uma tabela com o resultado de cada etapa. O selo no topo deste README mostra o estado da `desenvolvimento`.
+
+Em pull requests, só a etapa 1 roda.
+
+### Configuração (uma vez só)
+
+**1. Banco no Neon** (gratuito, em <https://neon.tech>)
+
+- Crie um projeto (região `AWS us-east-1`, perto do Render em Virginia) e um banco `controle_acesso`.
+- Copie a connection string **direta** (sem `-pooler` no host), terminando em `?sslmode=require`.
+
+**2. API no Render** (gratuito, em <https://render.com>)
+
+- _New → Blueprint_ → selecione este repositório. O `render.yaml` da raiz cria o serviço `controle-acesso-api-homolog` (Docker, plano free, branch `desenvolvimento`, deploy automático desligado). O `JWT_SECRET` é gerado sozinho.
+- Na tela do serviço, preencha `DATABASE_URL` com a URL do Neon.
+- Em _Settings → Deploy Hook_, copie a URL do hook.
+
+**3. GitHub** (quem é admin do repositório): _Settings → Environments → New environment_ `homologacao`
+
+| Tipo     | Nome                          | Valor                                                                                           |
+| -------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| Secret   | `HOMOLOG_DATABASE_URL`        | URL do Neon (a mesma do Render)                                                                 |
+| Secret   | `RENDER_DEPLOY_HOOK_URL`      | URL do deploy hook do Render                                                                    |
+| Secret   | `HOMOLOG_SEED_ADMIN_PASSWORD` | Senha do administrador de homologação (opcional, mas sem ela o admin não é criado)              |
+| Variável | `HOMOLOG_API_URL`             | Endereço do serviço, ex.: `https://controle-acesso-api-homolog.onrender.com` (sem barra no fim) |
+| Variável | `HOMOLOG_SEED_ADMIN_EMAIL`    | Opcional. Padrão: `admin@acesso.local`                                                          |
+
+Também é preciso que o GitHub Actions esteja **ativo** no repositório (_Settings → Actions → General → Allow all actions_).
+
+Se faltar alguma configuração, o job de deploy falha logo no primeiro passo, dizendo o que falta.
+
+### Observações
+
+- O plano gratuito do Render **hiberna** depois de 15 minutos sem uso. A primeira chamada depois disso leva cerca de 1 minuto. Antes da Sprint Review, abra `/api/v1/health` para acordar o serviço.
+- Os dados de demonstração **não** são criados pelo pipeline, porque o seed imprimiria a credencial do terminal no log público. Para criá-los, rode `npx prisma db seed` localmente com `DATABASE_URL` do Neon e `SEED_DEMO_PASSWORD`.
+- O MQTT (Mosquitto) não está na homologação. Quando a comunicação com a catraca for para a nuvem, será preciso um broker gerenciado, como o HiveMQ Cloud gratuito.
 
 ## Modelo de dados
 
