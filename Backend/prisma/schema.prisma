@@ -109,10 +109,29 @@ model Terminal {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  location Location      @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  events   AccessEvent[]
+  location     Location      @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  events       AccessEvent[]
+  qrChallenges QrChallenge[]
 
   @@map("terminals")
+}
+
+/// QR Code rotativo exibido pelo terminal (RF: QR que muda a cada 10 segundos).
+/// O app lê o código `<id>.<segredo>` e o devolve à API; cada código vale uma única vez.
+/// Só o hash SHA-256 do segredo fica no banco.
+model QrChallenge {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  terminalId String    @map("terminal_id") @db.Uuid
+  secretHash String    @map("secret_hash") @db.Char(64)
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  /// Preenchido quando o código é usado. Código usado não vale de novo.
+  usedAt     DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  terminal Terminal @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+
+  @@index([terminalId, expiresAt])
+  @@map("qr_challenges")
 }
 
 enum AuthorizationStatus {
