@@ -4,7 +4,7 @@ import type { Express } from 'express';
 import { createApp } from '../src/app.js';
 import { loadEnv } from '../src/config/env.js';
 import { createLogger } from '../src/config/logger.js';
-import { createContainer, type AppContainer } from '../src/container.js';
+import { createContainer, type AppContainer, type ContainerOverrides } from '../src/container.js';
 import type { PrismaClient, User } from '../src/generated/prisma/client.js';
 import { Role } from '../src/generated/prisma/enums.js';
 import type { Session } from '../src/models/auth.schemas.js';
@@ -16,9 +16,12 @@ export interface TestContext {
   container: AppContainer;
 }
 
-export function createTestContext(envOverrides: Record<string, string> = {}): TestContext {
+export function createTestContext(
+  envOverrides: Record<string, string> = {},
+  containerOverrides: ContainerOverrides = {},
+): TestContext {
   const env = loadEnv({ ...process.env, ...envOverrides });
-  const container = createContainer(env, createLogger(env));
+  const container = createContainer(env, createLogger(env), containerOverrides);
   return { app: createApp(container), container };
 }
 

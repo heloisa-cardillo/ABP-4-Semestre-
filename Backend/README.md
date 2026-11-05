@@ -88,18 +88,20 @@ A dependência aponta para dentro: rota → controller → service → repositor
 
 ## Autenticação (para quem consome a API)
 
-| Rota                     | Quem         | O que faz                                              |
-| ------------------------ | ------------ | ------------------------------------------------------ |
-| `POST /auth/login`       | público      | E-mail e senha → sessão                                |
-| `POST /auth/refresh`     | público      | Troca o refresh token por uma sessão nova              |
-| `POST /auth/logout`      | público      | Encerra a sessão do aparelho                           |
-| `GET /auth/me`           | autenticado  | Dados do usuário logado                                |
-| `/users` (CRUD)          | só **ADMIN** | Cadastro de administradores, condôminos e visitantes   |
-| `/locations` (CRUD)      | só **ADMIN** | Edifício › Portaria › Porta › Catraca, com coordenadas |
-| `/terminals` (CRUD)      | só **ADMIN** | Terminais nas catracas e credencial do dispositivo     |
-| `GET /terminals/me`      | **terminal** | O dispositivo confere a credencial e onde está         |
-| `/authorizations`        | só **ADMIN** | Cria, lista com filtros, busca e cancela autorizações  |
-| `GET /me/authorizations` | autenticado  | Autorizações da própria pessoa logada                  |
+| Rota                        | Quem         | O que faz                                              |
+| --------------------------- | ------------ | ------------------------------------------------------ |
+| `POST /auth/login`          | público      | E-mail e senha → sessão                                |
+| `POST /auth/refresh`        | público      | Troca o refresh token por uma sessão nova              |
+| `POST /auth/logout`         | público      | Encerra a sessão do aparelho                           |
+| `GET /auth/me`              | autenticado  | Dados do usuário logado                                |
+| `/users` (CRUD)             | só **ADMIN** | Cadastro de administradores, condôminos e visitantes   |
+| `/locations` (CRUD)         | só **ADMIN** | Edifício › Portaria › Porta › Catraca, com coordenadas |
+| `/terminals` (CRUD)         | só **ADMIN** | Terminais nas catracas e credencial do dispositivo     |
+| `GET /terminals/me`         | **terminal** | O dispositivo confere a credencial e onde está         |
+| `/authorizations`           | só **ADMIN** | Cria, lista com filtros, busca e cancela autorizações  |
+| `GET /me/authorizations`    | autenticado  | Autorizações da própria pessoa logada                  |
+| `POST /access/qr/challenge` | **terminal** | Próximo QR Code para exibir (vale 10 s, uso único)     |
+| `POST /access/qr`           | autenticado  | O app envia o QR lido e a posição do celular           |
 
 Fluxo no app (Flutter):
 
@@ -153,6 +155,33 @@ Authorization: Terminal 019a0000-0000-7000-8000-000000000101.<segredo>
 ```
 
 Responde onde o terminal está instalado e registra a hora da última conexão. Credencial errada, de terminal desativado ou JWT de usuário: `401 INVALID_TERMINAL_CREDENTIAL`. Terminal extraviado? `POST /terminals/{id}/credential` gera outra e a anterior para de valer na hora.
+
+## Acesso por QR Code
+
+O **terminal exibe** um QR Code que muda a cada 10 segundos e o **app lê**.
+
+```
+Terminal (ESP32)                         API                                   App
+  │ POST /access/qr/challenge ──────────▶ │ gera código de uso único (10 s)
+  │ ◀── 201 { code, expiresAt, ttlSeconds }│
+  │ exibe "code" como QR Code              │
+  │                                        │ ◀── POST /access/qr ──────────────── │ lê o QR
+  │                                        │     { code, latitude, longitude }   │ + GPS do celular
+  │                                        │ confere o código e decide           │
+  │                                        │ ── 200 { result, denyReason, ... } ▶│ tela de resultado
+```
+
+**Firmware:** chame `POST /access/qr/challenge` com `Authorization: Terminal <credencial>` a cada `ttlSeconds` e exiba `code` como QR. Guarde o código só na memória.
+
+**App:** envie o texto lido do QR (`code`) e a posição atual do celular. A resposta é sempre `200` quando o QR é de um terminal:
+
+- `result: "GRANTED"` → acesso liberado.
+- `result: "DENIED"` → mostre a mensagem conforme `denyReason`: `EXPIRED_CREDENTIAL` (o QR mudou, leia de novo), `CREDENTIAL_ALREADY_USED`, `INVALID_CREDENTIAL`, `NO_AUTHORIZATION`, `OUT_OF_RANGE` (mais de 100 m da catraca), entre outros.
+- `400` → o QR lido não é de um terminal do sistema, ou faltou a posição.
+
+Cada código vale **uma única vez**: duas leituras ao mesmo tempo, só uma passa. Toda leitura é registrada no histórico. A validade é configurável em `QR_CODE_TTL_SECONDS`.
+
+> A decisão (autorização, horário, distância, limite de usos) é do serviço de decisão de acesso (`AccessDecider`, em `src/services/access-decision.ts`). Enquanto ele não estiver ligado no `container.ts`, `POST /access/qr` responde `503 ACCESS_DECISION_UNAVAILABLE`.
 
 ## Modelo de dados
 
