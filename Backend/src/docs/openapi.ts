@@ -4,6 +4,7 @@ import { documentAuthRoutes } from '../routes/auth.routes.js';
 import { documentAuthorizationRoutes } from '../routes/authorizations.routes.js';
 import { documentHealthRoutes } from '../routes/health.routes.js';
 import { documentLocationRoutes } from '../routes/locations.routes.js';
+import { documentQrRoutes } from '../routes/qr.routes.js';
 import { documentTerminalRoutes } from '../routes/terminals.routes.js';
 import { documentUserRoutes } from '../routes/users.routes.js';
 
@@ -51,6 +52,7 @@ export function buildOpenApiDocument() {
   documentLocationRoutes(registry);
   documentTerminalRoutes(registry);
   documentAuthorizationRoutes(registry);
+  documentQrRoutes(registry);
 
   return new OpenApiGeneratorV31(registry.definitions).generateDocument({
     openapi: '3.1.0',
