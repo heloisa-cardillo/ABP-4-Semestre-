@@ -252,18 +252,19 @@ describe('POST /access/qr (app)', () => {
   });
 });
 
-describe('sem o serviço de decisão configurado', () => {
-  it('responde 503 em vez de liberar ou negar sem aplicar as regras', async () => {
-    const bare = createTestContext();
+describe('com o serviço de decisão de verdade (sem dublê)', () => {
+  it('aplica as regras: sem autorização, nega com NO_AUTHORIZATION e grava o evento', async () => {
+    const real = createTestContext();
     const { code } = await newCode();
 
-    const res = await request(bare.app)
+    const res = await request(real.app)
       .post('/api/v1/access/qr')
       .set('Authorization', userAuth)
       .send({ code, ...position });
 
-    expect(res.status).toBe(503);
-    expect(res.body.error.code).toBe('ACCESS_DECISION_UNAVAILABLE');
-    await bare.container.prisma.$disconnect();
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ result: 'DENIED', denyReason: 'NO_AUTHORIZATION' });
+    expect(await db.accessEvent.count()).toBe(1);
+    await real.container.prisma.$disconnect();
   });
 });

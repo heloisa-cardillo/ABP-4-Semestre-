@@ -41,3 +41,23 @@ describe('loadEnv', () => {
     );
   });
 });
+
+describe('loadEnv: acesso e MQTT', () => {
+  it('MQTT é opcional: ausente ou vazio deixa o aviso à catraca desligado', () => {
+    expect(loadEnv(REQUIRED).MQTT_URL).toBeUndefined();
+    const empty = loadEnv({ ...REQUIRED, MQTT_URL: '', MQTT_USERNAME: '', MQTT_PASSWORD: '' });
+    expect(empty.MQTT_URL).toBeUndefined();
+    expect(empty.MQTT_USERNAME).toBeUndefined();
+  });
+
+  it('aceita URL de broker MQTT e recusa outro esquema', () => {
+    expect(loadEnv({ ...REQUIRED, MQTT_URL: 'mqtt://mosquitto:1883' }).MQTT_URL).toBe(
+      'mqtt://mosquitto:1883',
+    );
+    expect(() => loadEnv({ ...REQUIRED, MQTT_URL: 'http://broker' })).toThrow(/MQTT_URL/);
+  });
+
+  it('limite de leituras por terminal: 60 por minuto por padrão', () => {
+    expect(loadEnv(REQUIRED).TERMINAL_ACCESS_RATE_LIMIT_MAX).toBe(60);
+  });
+});

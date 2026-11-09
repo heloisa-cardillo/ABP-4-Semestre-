@@ -27,6 +27,8 @@ model User {
   passwordHash String   @map("password_hash")
   role         Role
   phone        String?  @db.VarChar(20)
+  /// UID da tag NFC (hex maiúsculo, sem separadores). Uma tag pertence a no máximo um usuário.
+  nfcUid       String?  @unique @map("nfc_uid") @db.VarChar(20)
   /// Usuário desativado não faz login nem renova sessão. Não se apaga usuário: o histórico de acessos aponta para ele.
   active       Boolean  @default(true)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)

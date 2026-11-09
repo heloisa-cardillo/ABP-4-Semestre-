@@ -9,6 +9,7 @@ import {
   systemClock,
   timeFromDb,
   timeToDb,
+  toLocalDateTime,
 } from '../../src/services/local-time.js';
 
 const SP = 'America/Sao_Paulo';
@@ -29,6 +30,28 @@ describe('localDate e localTime', () => {
 
   it('meia-noite local sai como 00:00:00, não 24:00:00', () => {
     expect(localTime(new Date('2026-11-10T03:00:00Z'), SP)).toBe('00:00:00');
+  });
+});
+
+describe('toLocalDateTime', () => {
+  it('devolve data e hora locais juntas', () => {
+    expect(toLocalDateTime(new Date('2026-11-10T15:30:45Z'), SP)).toEqual({
+      date: '2026-11-10',
+      time: '12:30:45',
+    });
+  });
+
+  it('23h30 em São Paulo: em UTC já é o dia seguinte, mas a data local é hoje', () => {
+    expect(toLocalDateTime(new Date('2026-11-11T02:30:00Z'), SP)).toEqual({
+      date: '2026-11-10',
+      time: '23:30:00',
+    });
+  });
+
+  it('servidor em UTC e edifício em outro fuso dão datas diferentes para o mesmo instante', () => {
+    const now = new Date('2026-11-11T01:00:00Z');
+    expect(toLocalDateTime(now, 'UTC').date).toBe('2026-11-11');
+    expect(toLocalDateTime(now, SP).date).toBe('2026-11-10');
   });
 });
 

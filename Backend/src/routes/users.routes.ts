@@ -48,7 +48,9 @@ export function documentUserRoutes(registry: OpenAPIRegistry): void {
       201: { description: 'Usuário criado', ...json(publicUserSchema) },
       400: errorResponse('Dados inválidos'),
       ...authErrors,
-      409: errorResponse('E-mail já cadastrado (EMAIL_IN_USE)'),
+      409: errorResponse(
+        'E-mail já cadastrado (EMAIL_IN_USE) ou tag NFC de outro usuário (NFC_TAG_IN_USE)',
+      ),
     },
   });
 
@@ -83,14 +85,17 @@ export function documentUserRoutes(registry: OpenAPIRegistry): void {
     path: '/users/{id}',
     summary: 'Altera usuário',
     description:
-      'Trocar senha, trocar perfil ou desativar encerra as sessões abertas do usuário. O administrador não pode se desativar nem tirar o próprio perfil (SELF_LOCKOUT).',
+      'Trocar senha, trocar perfil ou desativar encerra as sessões abertas do usuário. O administrador não pode se desativar nem tirar o próprio perfil (SELF_LOCKOUT). ' +
+      'Envie `nfcUid: null` para desvincular a tag NFC.',
     request: { params: idParamSchema, body: json(updateUserSchema) },
     responses: {
       200: { description: 'Usuário alterado', ...json(publicUserSchema) },
       400: errorResponse('Dados inválidos'),
       ...authErrors,
       404: errorResponse('Usuário não encontrado'),
-      409: errorResponse('E-mail já cadastrado ou tentativa de se bloquear'),
+      409: errorResponse(
+        'E-mail já cadastrado, tag NFC de outro usuário (NFC_TAG_IN_USE) ou tentativa de se bloquear',
+      ),
     },
   });
 

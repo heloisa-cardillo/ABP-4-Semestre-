@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
+import type { Authorization, Prisma, PrismaClient } from '../generated/prisma/client.js';
 import { AuthorizationStatus } from '../generated/prisma/enums.js';
 import type { AuthorizationDetails } from '../models/authorization.schemas.js';
 import type { AuthorizationSituation } from '../services/authorization-rules.js';
@@ -86,6 +86,17 @@ export class AuthorizationRepository {
       this.db.authorization.count({ where }),
     ]);
     return { items, total };
+  }
+
+  /**
+   * Leitura usada pelo serviço de decisão de acesso: todas as autorizações da pessoa
+   * nos locais informados (a catraca e os locais acima dela), em qualquer status.
+   */
+  findForAccess(userId: string, locationIds: string[]): Promise<Authorization[]> {
+    return this.db.authorization.findMany({
+      where: { userId, locationId: { in: locationIds } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
   }
 
   /** Mesma prioridade de `situationOf`, traduzida para SQL. */

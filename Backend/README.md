@@ -104,6 +104,7 @@ A dependência aponta para dentro: rota → controller → service → repositor
 | `GET /me/authorizations`    | autenticado  | Autorizações da própria pessoa logada                  |
 | `POST /access/qr/challenge` | **terminal** | Próximo QR Code para exibir (vale 10 s, uso único)     |
 | `POST /access/qr`           | autenticado  | O app envia o QR lido e a posição do celular           |
+| `POST /access/nfc`          | **terminal** | O terminal envia o UID da tag NFC lida                 |
 
 Fluxo no app (Flutter):
 
@@ -158,6 +159,68 @@ Authorization: Terminal 019a0000-0000-7000-8000-000000000101.<segredo>
 
 Responde onde o terminal está instalado e registra a hora da última conexão. Credencial errada, de terminal desativado ou JWT de usuário: `401 INVALID_TERMINAL_CREDENTIAL`. Terminal extraviado? `POST /terminals/{id}/credential` gera outra e a anterior para de valer na hora.
 
+### Acesso por tag NFC
+
+O terminal lê a tag (PN532) e pergunta à API:
+
+```
+POST /api/v1/access/nfc
+Authorization: Terminal <credencial>
+Content-Type: application/json
+
+{ "uid": "04A1B2C3" }
+```
+
+O UID pode vir com ou sem separadores (`04:A1:B2:C3`, `04 a1 b2 c3`); 4, 7 ou 10 bytes. Resposta **200** sempre que o UID é válido:
+
+```json
+{
+  "result": "GRANTED",
+  "denyReason": null,
+  "message": "Acesso liberado",
+  "eventId": "…",
+  "user": { "name": "Ana" }
+}
+```
+
+- Abra a catraca **somente** se `result == "GRANTED"`. Mostre `message` no display (até 16 caracteres, sem acento).
+- Acesso negado **não** é erro HTTP: vem `200` com `result: "DENIED"` e o motivo em `denyReason` (tag desconhecida = `UNKNOWN_USER`).
+- `400`: UID mal formado. `401`: credencial do terminal. `429`: mais de 60 leituras por minuto neste terminal.
+
+A tag é vinculada ao usuário pelo administrador, no campo `nfcUid` de `POST /users` ou `PATCH /users/{id}` (`null` desvincula). Uma tag pertence a no máximo uma pessoa (`409 NFC_TAG_IN_USE`).
+
+### Aviso da decisão por MQTT
+
+No QR Code quem chama a API é o celular, então o terminal recebe a decisão pelo broker MQTT. A API publica **toda** decisão de acesso da catraca (QR e NFC, liberada ou negada), com QoS 1:
+
+- Tópico: `terminals/{terminalId}/decision`
+- Payload: `{"result":"GRANTED","message":"Acesso liberado","eventId":"…","ts":"2026-11-10T19:30:00.000Z"}`
+
+O firmware deve **ignorar mensagens com mais de 5 s** (`ts`), para um aviso atrasado não abrir a catraca, e pode usar o `eventId` para não agir duas vezes na mesma leitura NFC (que também chega pela resposta HTTP). O aviso fica desligado quando `MQTT_URL` está vazio; se o broker falhar, a API registra no log e responde normalmente, porque o evento já foi gravado.
+
+Para ver as mensagens localmente: `docker compose exec mosquitto mosquitto_sub -t 'terminals/#' -v`.
+
+> **Segurança:** o Mosquitto do compose aceita conexão anônima, o que serve só para a demo. Na US11 (Sprint 3) é preciso usuário e senha (`MQTT_USERNAME`/`MQTT_PASSWORD`), ACL por tópico (cada terminal só lê o próprio) e TLS (`mqtts://`).
+
+### Regras da decisão de acesso
+
+Toda tentativa (QR ou NFC) passa pelo `AccessDecisionService` (`src/services/access-decision.service.ts`), que grava exatamente um evento em `access_events`. A primeira regra que falhar define o motivo:
+
+|  #  | Verificação                                              | Motivo                    |
+| :-: | :------------------------------------------------------- | :------------------------ |
+|  0  | Negação já detectada (QR expirado, já usado ou inválido) | o próprio motivo          |
+|  1  | Terminal e catraca ativos                                | `TERMINAL_INACTIVE`       |
+|  2  | Pessoa identificada                                      | `UNKNOWN_USER`            |
+|  3  | Pessoa ativa                                             | `USER_INACTIVE`           |
+|  4  | Só no QR: celular a até 100 m da catraca                 | `OUT_OF_RANGE`            |
+|  5  | Autorização na catraca ou num local acima dela           | `NO_AUTHORIZATION`        |
+|  6  | Autorização ativa                                        | `AUTHORIZATION_CANCELLED` |
+|  7  | Hoje dentro do período                                   | `OUTSIDE_DATE_RANGE`      |
+|  8  | Agora dentro da janela diária                            | `OUTSIDE_TIME_WINDOW`     |
+|  9  | Usos abaixo do limite                                    | `USAGE_LIMIT_REACHED`     |
+
+Com várias autorizações, vale a primeira que passar em tudo (primeiro as sem limite de usos, depois a mais próxima da catraca); se nenhuma passar, o motivo é o da que chegou mais longe. Data e horário são comparados no fuso do edifício (`BUILDING_TIMEZONE`). O uso é contado na mesma transação do evento, com incremento condicional: leituras simultâneas não passam do limite.
+
 ## Acesso por QR Code
 
 O **terminal exibe** um QR Code que muda a cada 10 segundos e o **app lê**.
@@ -183,7 +246,7 @@ Terminal (ESP32)                         API                                   A
 
 Cada código vale **uma única vez**: duas leituras ao mesmo tempo, só uma passa. Toda leitura é registrada no histórico. A validade é configurável em `QR_CODE_TTL_SECONDS`.
 
-> A decisão (autorização, horário, distância, limite de usos) é do serviço de decisão de acesso (`AccessDecider`, em `src/services/access-decision.ts`). Enquanto ele não estiver ligado no `container.ts`, `POST /access/qr` responde `503 ACCESS_DECISION_UNAVAILABLE`.
+> A decisão (autorização, horário, distância, limite de usos) é do serviço de decisão de acesso: veja "Regras da decisão de acesso" acima. O terminal é avisado do resultado pelo MQTT.
 
 ## Deploy em homologação
 

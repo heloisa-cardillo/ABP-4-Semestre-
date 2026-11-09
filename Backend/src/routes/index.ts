@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { AppContainer } from '../container.js';
+import { accessRoutes } from './access.routes.js';
 import { authRoutes } from './auth.routes.js';
 import { authorizationRoutes } from './authorizations.routes.js';
 import { healthRoutes } from './health.routes.js';
@@ -17,5 +18,6 @@ export function apiRoutes(container: AppContainer): Router {
   router.use(terminalRoutes(container));
   router.use(authorizationRoutes(container));
   router.use(qrRoutes(container));
+  router.use(accessRoutes(container));
   return router;
 }

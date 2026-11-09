@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { Role } from '../src/generated/prisma/enums.js';
+import { UserRepository } from '../src/repositories/user.repository.js';
 import {
   createTestContext,
   createUser,
@@ -272,5 +273,114 @@ describe('DELETE /users/:id', () => {
     const res = await request(app).delete(`/api/v1/users/${user.id}`).set('Authorization', auth);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('SELF_LOCKOUT');
+  });
+});
+
+describe('tag NFC do usuário (US8)', () => {
+  const create = (auth: string, overrides: Record<string, unknown>) =>
+    request(app).post('/api/v1/users').set('Authorization', auth).send(newUser(overrides));
+
+  it('normaliza o UID: "04:a1:b2:c3" é gravado como "04A1B2C3"', async () => {
+    const { auth } = await sessionFor(ctx);
+
+    const res = await create(auth, { nfcUid: '04:a1:b2:c3' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.nfcUid).toBe('04A1B2C3');
+    const stored = await container.prisma.user.findUniqueOrThrow({ where: { id: res.body.id } });
+    expect(stored.nfcUid).toBe('04A1B2C3');
+  });
+
+  it('aceita UIDs de 4, 7 e 10 bytes, com espaço, dois-pontos ou hífen', async () => {
+    const { auth } = await sessionFor(ctx);
+    const cases = [
+      ['04 a1 b2 c3', '04A1B2C3'],
+      ['04-11-22-33-44-55-66', '04112233445566'],
+      ['0102030405060708090a', '0102030405060708090A'],
+    ];
+    for (const [i, [input, expected]] of cases.entries()) {
+      const res = await create(auth, { email: `tag${i}@teste.com`, nfcUid: input });
+      expect(res.status).toBe(201);
+      expect(res.body.nfcUid).toBe(expected);
+    }
+  });
+
+  it('usuário sem tag sai com nfcUid nulo', async () => {
+    const { auth } = await sessionFor(ctx);
+    const res = await create(auth, {});
+    expect(res.body.nfcUid).toBeNull();
+  });
+
+  it('a mesma tag em duas pessoas responde 409 NFC_TAG_IN_USE (no cadastro e na alteração)', async () => {
+    const { auth } = await sessionFor(ctx);
+    await create(auth, { nfcUid: '04A1B2C3' });
+
+    const again = await create(auth, { email: 'outra@teste.com', nfcUid: '04:a1:b2:c3' });
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe('NFC_TAG_IN_USE');
+
+    const other = await create(auth, { email: 'outra@teste.com' });
+    const patch = await request(app)
+      .patch(`/api/v1/users/${other.body.id}`)
+      .set('Authorization', auth)
+      .send({ nfcUid: '04A1B2C3' });
+    expect(patch.status).toBe(409);
+    expect(patch.body.error.code).toBe('NFC_TAG_IN_USE');
+  });
+
+  it('e-mail repetido continua dando EMAIL_IN_USE, mesmo com tag nova', async () => {
+    const { auth } = await sessionFor(ctx);
+    await create(auth, { nfcUid: '04A1B2C3' });
+    const res = await create(auth, { nfcUid: '04A1B2C4' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('EMAIL_IN_USE');
+  });
+
+  it.each([
+    ['caracteres que não são hex', 'XYZ'],
+    ['5 bytes', '0102030405'],
+    ['vazio', ''],
+    ['número em vez de texto', 12345678],
+  ])('recusa UID mal formado com 400: %s', async (_case, nfcUid) => {
+    const { auth } = await sessionFor(ctx);
+    const res = await create(auth, { nfcUid });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect((res.body.error.details as { field: string }[]).map((d) => d.field)).toContain('nfcUid');
+  });
+
+  it('PATCH vincula, troca e, com null, desvincula a tag', async () => {
+    const { auth } = await sessionFor(ctx);
+    const { body: user } = await create(auth, {});
+    const patch = (nfcUid: unknown) =>
+      request(app).patch(`/api/v1/users/${user.id}`).set('Authorization', auth).send({ nfcUid });
+
+    expect((await patch('04a1b2c3')).body.nfcUid).toBe('04A1B2C3');
+    expect((await patch('04112233445566')).body.nfcUid).toBe('04112233445566');
+
+    const unlinked = await patch(null);
+    expect(unlinked.status).toBe(200);
+    expect(unlinked.body.nfcUid).toBeNull();
+  });
+
+  it('a tag liberada por um usuário pode ser vinculada a outro', async () => {
+    const { auth } = await sessionFor(ctx);
+    const { body: first } = await create(auth, { nfcUid: '04A1B2C3' });
+    await request(app)
+      .patch(`/api/v1/users/${first.id}`)
+      .set('Authorization', auth)
+      .send({ nfcUid: null });
+
+    const second = await create(auth, { email: 'outra@teste.com', nfcUid: '04A1B2C3' });
+    expect(second.status).toBe(201);
+  });
+
+  it('findByNfcUid encontra o usuário pelo UID normalizado', async () => {
+    const { auth } = await sessionFor(ctx);
+    const { body: user } = await create(auth, { nfcUid: '04:a1:b2:c3' });
+    const repository = new UserRepository(container.prisma);
+
+    expect((await repository.findByNfcUid('04A1B2C3'))?.id).toBe(user.id);
+    expect(await repository.findByNfcUid('FFFFFFFF')).toBeNull();
   });
 });
