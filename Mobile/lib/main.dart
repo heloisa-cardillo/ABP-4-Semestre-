@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'services/api_service.dart';
 import 'tema.dart';
 import 'telas/autorizacoes_admin_tela.dart';
 import 'telas/criar_autorizacao_tela.dart';
@@ -43,10 +44,43 @@ class _PrincipalState extends State<Principal> {
     'Histórico',
   ];
 
+  final _apiService = ApiService();
   Perfil? _perfil;
   int _aba = 0;
 
   bool get _admin => _perfil == Perfil.administrador;
+
+  @override
+  void initState() {
+    super.initState();
+    _inicializarApi();
+  }
+
+  Future<void> _inicializarApi() async {
+    await _apiService.initialize();
+    if (_apiService.isLoggedIn && mounted) {
+      // Se já tem token salvo, tenta determinar o perfil
+      final perfil = _apiService.userProfile;
+      if (perfil != null) {
+        setState(() {
+          _perfil = _perfilFromString(perfil);
+        });
+      }
+    }
+  }
+
+  Perfil _perfilFromString(String perfil) {
+    switch (perfil) {
+      case 'RESIDENT':
+        return Perfil.condomino;
+      case 'VISITOR':
+        return Perfil.visitante;
+      case 'ADMIN':
+        return Perfil.administrador;
+      default:
+        return Perfil.condomino;
+    }
+  }
 
   void _entrar(Perfil perfil) {
     setState(() {
@@ -55,16 +89,29 @@ class _PrincipalState extends State<Principal> {
     });
   }
 
+  Future<void> _sair() async {
+    await _apiService.logout();
+    if (mounted) {
+      setState(() {
+        _perfil = null;
+        _aba = 0;
+      });
+    }
+  }
+
   List<Widget> _telas() {
     if (_admin) {
-      return const [
-        AutorizacoesAdminTela(),
-        CriarAutorizacaoTela(),
-        UsuariosLocaisTela(),
-        HistoricoTela(),
+      return [
+        AutorizacoesAdminTela(apiService: _apiService),
+        CriarAutorizacaoTela(apiService: _apiService),
+        UsuariosLocaisTela(apiService: _apiService),
+        HistoricoTela(apiService: _apiService),
       ];
     }
-    return const [MinhasAutorizacoesTela(), LerQrTela()];
+    return [
+      MinhasAutorizacoesTela(apiService: _apiService, onLogout: _sair),
+      LerQrTela(apiService: _apiService),
+    ];
   }
 
   Widget _barra() {
@@ -111,7 +158,7 @@ class _PrincipalState extends State<Principal> {
   @override
   Widget build(BuildContext context) {
     if (_perfil == null) {
-      return LoginTela(onEntrar: _entrar);
+      return LoginTela(apiService: _apiService, onEntrar: _entrar);
     }
 
     return Scaffold(

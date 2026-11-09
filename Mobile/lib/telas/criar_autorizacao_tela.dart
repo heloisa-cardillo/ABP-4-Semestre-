@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../tema.dart';
 
 class CriarAutorizacaoTela extends StatefulWidget {
-  const CriarAutorizacaoTela({super.key});
+  final ApiService apiService;
+
+  const CriarAutorizacaoTela({super.key, required this.apiService});
 
   @override
   State<CriarAutorizacaoTela> createState() => _CriarAutorizacaoTelaState();

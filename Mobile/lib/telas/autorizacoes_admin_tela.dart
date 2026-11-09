@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../tema.dart';
 
 enum Situacao { ativa, expirada, cancelada }
@@ -19,7 +20,9 @@ class _Autorizacao {
 }
 
 class AutorizacoesAdminTela extends StatefulWidget {
-  const AutorizacoesAdminTela({super.key});
+  final ApiService apiService;
+
+  const AutorizacoesAdminTela({super.key, required this.apiService});
 
   @override
   State<AutorizacoesAdminTela> createState() => _AutorizacoesAdminTelaState();
