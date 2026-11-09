@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.darmt' as http;
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-    static const String _baseUrl = 'https://backend-teste-sic-4s-10.onrender.com/api/v1';
+  static const String _baseUrl = 'https://backend-teste-sic-4s-10.onrender.com/api/v1';
   static const String _tokenKey = 'auth_token';
   static const String _userProfileKey = 'user_profile';
 
