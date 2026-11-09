@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../tema.dart';
 
 class UsuariosLocaisTela extends StatefulWidget {
-  const UsuariosLocaisTela({super.key});
+  final ApiService apiService;
+
+  const UsuariosLocaisTela({super.key, required this.apiService});
 
   @override
   State<UsuariosLocaisTela> createState() => _UsuariosLocaisTelaState();

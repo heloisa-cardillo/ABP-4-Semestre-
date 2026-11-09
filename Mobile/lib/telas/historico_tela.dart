@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../tema.dart';
 
 class HistoricoTela extends StatelessWidget {
-  const HistoricoTela({super.key});
+  final ApiService apiService;
+
+  const HistoricoTela({super.key, required this.apiService});
 
   @override
   Widget build(BuildContext context) {

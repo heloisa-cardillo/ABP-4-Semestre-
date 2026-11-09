@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import '../tema.dart';
 
 class LerQrTela extends StatelessWidget {
-  const LerQrTela({super.key});
+  final ApiService apiService;
+
+  const LerQrTela({super.key, required this.apiService});
 
   @override
   Widget build(BuildContext context) {
