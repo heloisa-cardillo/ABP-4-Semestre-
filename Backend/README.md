@@ -1,6 +1,6 @@
 # Backend: API de Controle de Acesso
 
-[![Backend CI](https://github.com/heloisa-cardillo/ABP-4-Semestre-/actions/workflows/backend-ci.yml/badge.svg?branch=desenvolvimento)](https://github.com/heloisa-cardillo/ABP-4-Semestre-/actions/workflows/backend-ci.yml)
+[![Backend CI](https://github.com/heloisa-cardillo/ABP-4-Semestre-/actions/workflows/backend-ci.yml/badge.svg?branch=main)](https://github.com/heloisa-cardillo/ABP-4-Semestre-/actions/workflows/backend-ci.yml)
 
 API REST em **Node.js + Express + TypeScript** (RP01), com **PostgreSQL** via **Prisma**. Toda decisão de liberar ou negar acesso é tomada aqui; o terminal e o aplicativo só exibem e executam.
 
@@ -187,13 +187,13 @@ Cada código vale **uma única vez**: duas leituras ao mesmo tempo, só uma pass
 
 ## Deploy em homologação
 
-A cada push na branch `desenvolvimento`, o GitHub Actions (`.github/workflows/backend-ci.yml`) roda:
+A cada push na branch `main`, o GitHub Actions (`.github/workflows/backend-ci.yml`) roda:
 
 1. **Lint, tipos, build e testes**, e **build da imagem Docker**. Se algo falhar, para aqui.
 2. **Migrations** no banco de homologação (`prisma migrate deploy`) e garante o usuário administrador.
 3. **Deploy no Render**, disparado pelo deploy hook.
 4. **Confirmação:** espera `GET /api/v1/health` responder com `version` igual ao commit e confere o banco em `/health/ready`.
-5. **Resumo** na página da execução, com uma tabela com o resultado de cada etapa. O selo no topo deste README mostra o estado da `desenvolvimento`.
+5. **Resumo** na página da execução, com uma tabela com o resultado de cada etapa. O selo no topo deste README mostra o estado da `main`.
 
 Em pull requests, só a etapa 1 roda.
 
@@ -206,7 +206,7 @@ Em pull requests, só a etapa 1 roda.
 
 **2. API no Render** (gratuito, em <https://render.com>)
 
-- _New → Blueprint_ → selecione este repositório. O `render.yaml` da raiz cria o serviço `controle-acesso-api-homolog` (Docker, plano free, branch `desenvolvimento`, deploy automático desligado). O `JWT_SECRET` é gerado sozinho.
+- _New → Blueprint_ → selecione este repositório. O `render.yaml` da raiz cria o serviço `controle-acesso-api-homolog` (Docker, plano free, branch `main`, deploy automático desligado). O `JWT_SECRET` é gerado sozinho.
 - Na tela do serviço, preencha `DATABASE_URL` com a URL do Neon.
 - Em _Settings → Deploy Hook_, copie a URL do hook.
 
