@@ -7,7 +7,7 @@ services:
     runtime: docker
     plan: free
     region: virginia
-    branch: desenvolvimento
+    branch: main
     rootDir: Backend
     dockerfilePath: ./Dockerfile
     dockerContext: .

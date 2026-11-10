@@ -88,12 +88,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Homologação (US9): só depois do CI passar e só em push na branch desenvolvimento.
+  # Homologação (US9): só depois do CI passar e só em push na branch main.
   # Configuração (uma vez): Backend/README.md, seção "Deploy em homologação".
   deploy-homologacao:
     name: Deploy em homologação
     needs: [quality, docker]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/desenvolvimento'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment:
@@ -213,7 +213,7 @@ jobs:
             if [ "$DEPLOY" = "success" ]; then
               echo "Homologação no ar: $API_URL/api/v1/docs"
             elif [ "$DEPLOY" = "skipped" ]; then
-              echo "O deploy só roda em push na branch \`desenvolvimento\`, depois do CI passar."
+              echo "O deploy só roda em push na branch \`main\`, depois do CI passar."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           [ "$QUALITY" != "failure" ] && [ "$DOCKER" != "failure" ] && [ "$DEPLOY" != "failure" ]
