@@ -26,6 +26,19 @@ export const phoneSchema = z
   .trim()
   .regex(/^\+?\d{10,15}$/, 'Telefone com DDD, só números (ex.: 12988887777).');
 
+/**
+ * UID da tag NFC lida pelo PN532 (4, 7 ou 10 bytes).
+ * Aceita "04:A1:B2:C3", "04 a1 b2 c3" ou "04A1B2C3" e grava "04A1B2C3".
+ */
+export const nfcUidSchema = z
+  .string()
+  .transform((v) => v.replace(/[\s:-]/g, '').toUpperCase())
+  .pipe(z.string().regex(/^([0-9A-F]{8}|[0-9A-F]{14}|[0-9A-F]{20})$/, 'UID de tag NFC inválido.'))
+  .meta({
+    description: 'UID da tag NFC em hexadecimal (4, 7 ou 10 bytes). Separadores são ignorados.',
+    example: '04A1B2C3',
+  });
+
 export const createUserSchema = z
   .strictObject({
     name: nameSchema,
@@ -33,6 +46,7 @@ export const createUserSchema = z
     password: passwordSchema,
     role: roleSchema,
     phone: phoneSchema.optional(),
+    nfcUid: nfcUidSchema.optional(),
   })
   .meta({ id: 'CreateUserInput' });
 
@@ -43,6 +57,8 @@ export const updateUserSchema = z
     password: passwordSchema.optional(),
     role: roleSchema.optional(),
     phone: phoneSchema.nullable().optional(),
+    /** `null` desvincula a tag. */
+    nfcUid: nfcUidSchema.nullable().optional(),
     active: z.boolean().optional(),
   })
   .refine((input) => Object.keys(input).length > 0, 'Informe ao menos um campo para alterar.')
@@ -61,6 +77,7 @@ export const publicUserSchema = z
     email: z.string(),
     role: roleSchema,
     phone: z.string().nullable(),
+    nfcUid: z.string().nullable().meta({ description: 'UID da tag NFC vinculada, se houver.' }),
     active: z.boolean(),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
@@ -80,6 +97,7 @@ export function toPublicUser(user: User): PublicUser {
     email: user.email,
     role: user.role,
     phone: user.phone,
+    nfcUid: user.nfcUid,
     active: user.active,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),

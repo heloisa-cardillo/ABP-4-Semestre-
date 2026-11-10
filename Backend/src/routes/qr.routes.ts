@@ -53,7 +53,6 @@ export function documentQrRoutes(registry: OpenAPIRegistry): void {
       200: { description: 'Decisão', ...json(accessDecisionResponseSchema) },
       400: errorResponse('QR Code que não é de terminal, ou posição ausente ou inválida'),
       401: errorResponse('Sem token ou token inválido'),
-      503: errorResponse('Validação de acesso indisponível (ACCESS_DECISION_UNAVAILABLE)'),
     },
   });
 }

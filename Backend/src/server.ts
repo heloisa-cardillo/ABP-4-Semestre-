@@ -16,10 +16,9 @@ const server = app.listen(env.PORT, () => {
 function shutdown(signal: string): void {
   logger.info({ signal }, 'encerrando');
   server.close((err) => {
-    container.prisma
-      .$disconnect()
+    Promise.all([container.prisma.$disconnect(), container.turnstileNotifier.close()])
       .catch((dbErr: unknown) => {
-        logger.error({ err: dbErr }, 'falha ao fechar a conexão com o banco');
+        logger.error({ err: dbErr }, 'falha ao fechar a conexão com o banco ou com o broker');
       })
       .finally(() => {
         if (err) logger.error({ err }, 'falha ao encerrar o servidor HTTP');

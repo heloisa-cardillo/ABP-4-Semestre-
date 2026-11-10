@@ -51,6 +51,11 @@ export function localTime(now: Date, timeZone: string): TimeOfDay {
   return `${p.hour}:${p.minute}:${p.second}`;
 }
 
+/** Data e horário locais do instante `now` no fuso informado. */
+export function toLocalDateTime(now: Date, timeZone: string): { date: DateOnly; time: TimeOfDay } {
+  return { date: localDate(now, timeZone), time: localTime(now, timeZone) };
+}
+
 /** Soma (ou subtrai, com valor negativo) dias a uma data `YYYY-MM-DD`. */
 export function addDays(date: DateOnly, days: number): DateOnly {
   const d = dateToDb(date);

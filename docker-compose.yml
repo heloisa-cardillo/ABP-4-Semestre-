@@ -19,6 +19,8 @@ services:
       DATABASE_URL: *database-url
       # Só para uso local. Em homologação/produção o segredo vem do cofre da nuvem.
       JWT_SECRET: ${JWT_SECRET:-segredo-local-do-docker-compose-troque-em-producao}
+      # Aviso à catraca (US7/US8). Ver mensagens: docker compose exec mosquitto mosquitto_sub -t 'terminals/#' -v
+      MQTT_URL: mqtt://mosquitto:1883
     ports:
       - '${API_BIND:-127.0.0.1}:3000:3000'
     depends_on:

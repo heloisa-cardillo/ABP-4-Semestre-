@@ -1,7 +1,11 @@
 import type { Prisma, User } from '../generated/prisma/client.js';
 import { Role } from '../generated/prisma/enums.js';
 import type { CreateUserInput, ListUsersQuery, UpdateUserInput } from '../models/user.schemas.js';
-import { isRecordNotFound, isUniqueViolation } from '../repositories/prisma-errors.js';
+import {
+  isRecordNotFound,
+  isUniqueViolation,
+  isUniqueViolationOn,
+} from '../repositories/prisma-errors.js';
 import type { RefreshTokenRepository } from '../repositories/refresh-token.repository.js';
 import type { UserRepository } from '../repositories/user.repository.js';
 import type { AuthContext } from '../shared/auth-context.js';
@@ -10,6 +14,15 @@ import type { PasswordHasher } from './password-hasher.js';
 
 const emailInUse = () => AppError.conflict('EMAIL_IN_USE', 'Já existe um usuário com este e-mail.');
 const userNotFound = () => AppError.notFound('Usuário não encontrado.');
+const nfcTagInUse = () =>
+  AppError.conflict('NFC_TAG_IN_USE', 'Esta tag NFC já está vinculada a outro usuário.');
+
+/** E-mail e tag NFC são únicos: descobre qual dos dois conflitou. */
+function uniqueConflict(err: unknown): AppError | null {
+  if (isUniqueViolationOn(err, 'nfc_uid', 'nfcUid')) return nfcTagInUse();
+  if (isUniqueViolation(err)) return emailInUse();
+  return null;
+}
 
 /** Cadastro de usuários nos perfis administrador, condômino e visitante (RF01). */
 export class UserService {
@@ -28,10 +41,10 @@ export class UserService {
         passwordHash,
         role: input.role,
         phone: input.phone ?? null,
+        nfcUid: input.nfcUid ?? null,
       });
     } catch (err) {
-      if (isUniqueViolation(err)) throw emailInUse();
-      throw err;
+      throw uniqueConflict(err) ?? err;
     }
   }
 
@@ -57,6 +70,7 @@ export class UserService {
     if (input.email !== undefined) data.email = input.email;
     if (input.role !== undefined) data.role = input.role;
     if (input.phone !== undefined) data.phone = input.phone;
+    if (input.nfcUid !== undefined) data.nfcUid = input.nfcUid;
     if (input.active !== undefined) data.active = input.active;
     if (input.password !== undefined) data.passwordHash = await this.hasher.hash(input.password);
 
@@ -64,7 +78,8 @@ export class UserService {
     try {
       updated = await this.users.update(id, data);
     } catch (err) {
-      if (isUniqueViolation(err)) throw emailInUse();
+      const conflict = uniqueConflict(err);
+      if (conflict) throw conflict;
       if (isRecordNotFound(err)) throw userNotFound();
       throw err;
     }

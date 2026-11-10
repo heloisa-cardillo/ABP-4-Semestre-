@@ -24,6 +24,11 @@ export class UserRepository {
     return this.db.user.findUnique({ where: { email } });
   }
 
+  /** Busca pelo UID da tag NFC já normalizado (hex maiúsculo, sem separadores). */
+  findByNfcUid(nfcUid: string): Promise<User | null> {
+    return this.db.user.findUnique({ where: { nfcUid } });
+  }
+
   create(data: Prisma.UserCreateInput): Promise<User> {
     return this.db.user.create({ data });
   }

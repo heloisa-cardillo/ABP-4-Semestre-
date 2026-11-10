@@ -11,6 +11,13 @@ const csv = z
       .filter(Boolean),
   );
 
+/** Texto opcional em que vazio (`MQTT_URL=` no .env) conta como não informado. */
+const optionalText = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => value || undefined);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -41,6 +48,22 @@ const envSchema = z.object({
     .refine(isValidTimeZone, 'fuso inválido (use um nome IANA, ex.: America/Sao_Paulo)'),
   /** Validade de cada QR Code exibido pelo terminal. O terminal pede um novo nesse intervalo. */
   QR_CODE_TTL_SECONDS: z.coerce.number().int().min(5).max(120).default(10),
+
+  /** Leituras de tag NFC por terminal, por minuto (contra força bruta de UIDs). */
+  TERMINAL_ACCESS_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(60),
+
+  /**
+   * Broker MQTT para avisar a catraca da decisão (ex.: mqtt://127.0.0.1:1883).
+   * Vazio = aviso desligado: o terminal só recebe a resposta das chamadas que ele mesmo faz.
+   */
+  MQTT_URL: optionalText.pipe(
+    z
+      .string()
+      .regex(/^(mqtts?|wss?):\/\//, 'deve ser uma URL mqtt://, mqtts://, ws:// ou wss://')
+      .optional(),
+  ),
+  MQTT_USERNAME: optionalText,
+  MQTT_PASSWORD: optionalText,
 
   /** Versão exibida em /health. Se vazio, usa o commit que o Render injeta (RENDER_GIT_COMMIT). */
   APP_VERSION: z.string().trim().min(1).optional(),

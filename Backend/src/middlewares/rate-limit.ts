@@ -1,12 +1,16 @@
-import type { Request, RequestHandler } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import { AppError } from '../shared/app-error.js';
 
 const WINDOW_MS = 15 * 60 * 1000;
 
-function limiter(max: number, keyGenerator: (req: Request) => string): RequestHandler {
+function limiter(
+  max: number,
+  keyGenerator: (req: Request, res: Response) => string,
+  windowMs = WINDOW_MS,
+): RequestHandler {
   return rateLimit({
-    windowMs: WINDOW_MS,
+    windowMs,
     limit: max,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
@@ -41,4 +45,16 @@ export function loginRateLimit(max: number): RequestHandler {
  */
 export function sessionRateLimit(max: number): RequestHandler {
   return limiter(max, clientIp);
+}
+
+/**
+ * Limita as leituras de credencial de cada terminal por minuto, para ninguém testar
+ * UIDs de tag em força bruta. Usar depois de `authenticateTerminal`.
+ */
+export function terminalRateLimit(maxPerMinute: number): RequestHandler {
+  return limiter(
+    maxPerMinute,
+    (req, res) => res.locals.terminal?.terminalId ?? clientIp(req),
+    60 * 1000,
+  );
 }
