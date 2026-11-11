@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,7 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String _baseUrl = 'https://backend-teste-sic-4s-10.onrender.com/api/v1';
+  static const String _baseUrl =
+      'https://backend-teste-sic-4s-10.onrender.com/api/v1';
   static const String _tokenKey = 'auth_token';
   static const String _userProfileKey = 'user_profile';
 
@@ -26,10 +27,7 @@ class ApiService {
 
   /// Faz login. O perfil (`ADMIN`, `RESIDENT` ou `VISITOR`) vem da resposta da API
   /// e fica em [userProfile]. A API só aceita `email` e `password` no corpo.
-  Future<bool> login({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> login({required String email, required String password}) async {
     try {
       final response = await http
           .post(
@@ -145,8 +143,11 @@ class ApiService {
   // ---------- Usuários e locais ----------
 
   Future<List<Pessoa>> listarUsuarios(String role) async {
-        final body = await _chamar('GET', '/users',
-        query: {'role': role, 'pageSize': '100', 'active': 'true'});
+    final body = await _chamar(
+      'GET',
+      '/users',
+      query: {'role': role, 'pageSize': '100', 'active': 'true'},
+    );
     return _extrairLista(body)
         .map((j) => Pessoa.fromJson(j as Map<String, dynamic>))
         .toList();
@@ -156,14 +157,19 @@ class ApiService {
     String? id,
     required Map<String, dynamic> dados,
   }) async {
-    await _chamar(id == null ? 'POST' : 'PATCH',
-        id == null ? '/users' : '/users/$id',
-        corpo: dados);
+    await _chamar(
+      id == null ? 'POST' : 'PATCH',
+      id == null ? '/users' : '/users/$id',
+      corpo: dados,
+    );
   }
 
   Future<List<Local>> listarLocais() async {
-        final body = await _chamar('GET', '/locations',
-        query: {'pageSize': '100', 'active': 'true'});
+    final body = await _chamar(
+      'GET',
+      '/locations',
+      query: {'pageSize': '100', 'active': 'true'},
+    );
     return _extrairLista(body)
         .map((j) => Local.fromJson(j as Map<String, dynamic>))
         .toList();
@@ -173,9 +179,34 @@ class ApiService {
     String? id,
     required Map<String, dynamic> dados,
   }) async {
-    await _chamar(id == null ? 'POST' : 'PATCH',
-        id == null ? '/locations' : '/locations/$id',
-        corpo: dados);
+    await _chamar(
+      id == null ? 'POST' : 'PATCH',
+      id == null ? '/locations' : '/locations/$id',
+      corpo: dados,
+    );
+  }
+
+  Future<AuthorizationPage> listarAutorizacoes({String? situation}) async {
+    final query = <String, String>{'page': '1', 'pageSize': '100'};
+    if (situation != null) query['situation'] = situation;
+
+    final body = await _chamar('GET', '/authorizations', query: query);
+    final items = _extrairLista(body)
+        .map((j) => Authorization.fromJson(j as Map<String, dynamic>))
+        .toList();
+    final meta = body is Map<String, dynamic>
+        ? body['meta'] as Map<String, dynamic>?
+        : null;
+    final total = (meta?['total'] as num?)?.toInt() ?? items.length;
+    return AuthorizationPage(items: items, total: total);
+  }
+
+  Future<void> cancelarAutorizacao(String id, {String? motivo}) async {
+    await _chamar(
+      'POST',
+      '/authorizations/$id/cancel',
+      corpo: {if (motivo != null && motivo.isNotEmpty) 'reason': motivo},
+    );
   }
 
   List<dynamic> _extrairLista(dynamic body) {
@@ -200,14 +231,14 @@ class ApiService {
       );
     }
 
-    final uri =
-        Uri.parse('$_baseUrl$caminho').replace(queryParameters: query);
+    final uri = Uri.parse('$_baseUrl$caminho').replace(queryParameters: query);
     final http.Response response;
     try {
       final request = http.Request(metodo, uri)..headers.addAll(authHeaders);
       if (corpo != null) request.body = jsonEncode(corpo);
-      final streamed =
-          await request.send().timeout(const Duration(seconds: 30));
+      final streamed = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
       response = await http.Response.fromStream(streamed);
     } on TimeoutException {
       throw const ApiException(
@@ -255,7 +286,7 @@ class ApiService {
     throw ApiException('Não foi possível concluir a ação (código $status).');
   }
 
-   String? _mensagemDoErro(String body) {
+  String? _mensagemDoErro(String body) {
     try {
       final data = jsonDecode(body);
       final erro = data is Map ? data['error'] : null;
@@ -266,9 +297,9 @@ class ApiService {
   }
 
   Map<String, String> get authHeaders => {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_token',
-      };
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $_token',
+  };
 }
 
 /// Erro de API com mensagem já amigável para o usuário.
