@@ -6,7 +6,7 @@ import type {
   AccessDecider,
   AccessDecision,
 } from '../src/services/access-decision.js';
-import { formatQrCode, parseQrCode } from '../src/services/qr-code-format.js';
+import { generateQrCode } from '../src/services/qr-code-format.js';
 import { sha256 } from '../src/services/token.service.js';
 import { createTestContext, resetDatabase, sessionFor } from './helpers.js';
 
@@ -83,14 +83,15 @@ const issue = (auth = terminalAuth) =>
 const redeem = (body: object, auth = userAuth) =>
   request(app).post('/api/v1/access/qr').set('Authorization', auth).send(body);
 
-/** Código de um desafio que não existe no banco, no formato válido. */
-const UNKNOWN_CODE = formatQrCode('019a0000-0000-7000-8000-000000000999', 'a'.repeat(22));
+/** Código no formato válido que não corresponde a nenhum desafio do banco. */
+const UNKNOWN_CODE = generateQrCode();
 
-async function newCode(): Promise<{ code: string; id: string; secret: string }> {
+/** Pede um código ao terminal e acha o desafio dele no banco pelo hash. */
+async function newCode(): Promise<{ code: string; id: string }> {
   const res = await issue();
-  const parsed = parseQrCode(res.body.code);
-  if (!parsed) throw new Error(`código fora do formato: ${res.body.code}`);
-  return { code: res.body.code, ...parsed };
+  const code: string = res.body.code;
+  const stored = await db.qrChallenge.findUniqueOrThrow({ where: { secretHash: sha256(code) } });
+  return { code, id: stored.id };
 }
 
 describe('POST /access/qr/challenge (terminal)', () => {
@@ -101,20 +102,19 @@ describe('POST /access/qr/challenge (terminal)', () => {
     expect(res.status).toBe(201);
     expect(res.headers['cache-control']).toBe('no-store');
     expect(res.body.ttlSeconds).toBe(10);
-    // Curto o bastante para virar QR versão 3 (29x29) e ser lido no OLED de 128x64 do terminal.
-    expect(res.body.code).toMatch(/^[\w-]{22}\.[\w-]{22}$/);
-    expect(res.body.code.length).toBeLessThanOrEqual(53);
+    // 25 caracteres alfanuméricos: QR versão 1 (21x21), que cabe na parte azul do OLED do terminal.
+    expect(res.body.code).toMatch(/^[0-9A-HJKMNP-TV-Z]{25}$/);
     const expiresAt = new Date(res.body.expiresAt).getTime();
     expect(expiresAt - before).toBeGreaterThanOrEqual(9_000);
     expect(expiresAt - before).toBeLessThanOrEqual(11_000);
   });
 
   it('o banco guarda só o hash do segredo', async () => {
-    const { id, secret } = await newCode();
+    const { code, id } = await newCode();
     const stored = await db.qrChallenge.findUniqueOrThrow({ where: { id } });
     expect(stored.terminalId).toBe(terminalId);
-    expect(stored.secretHash).toBe(sha256(secret));
-    expect(JSON.stringify(stored)).not.toContain(secret);
+    expect(stored.secretHash).toBe(sha256(code));
+    expect(JSON.stringify(stored)).not.toContain(code);
   });
 
   it('cada chamada gera um código diferente', async () => {
@@ -195,19 +195,20 @@ describe('POST /access/qr (app)', () => {
     });
   });
 
-  it('segredo errado: INVALID_CREDENTIAL, sem atribuir a tentativa ao terminal', async () => {
+  it('código forjado: INVALID_CREDENTIAL, sem atribuir ao terminal e sem queimar o código verdadeiro', async () => {
     const { id } = await newCode();
+    const forged = generateQrCode();
 
-    const res = await redeem({ code: formatQrCode(id, 'x'.repeat(22)), ...position });
+    const res = await redeem({ code: forged, ...position });
 
     expect(res.body.denyReason).toBe('INVALID_CREDENTIAL');
     expect(decider.attempts[0]).toMatchObject({
       terminalId: null,
       userId,
-      credential: id,
+      // Registra só um pedaço do hash: dá para rastrear repetições sem guardar o texto lido.
+      credential: `sha256:${sha256(forged).slice(0, 16)}`,
       presetDeny: DenyReason.INVALID_CREDENTIAL,
     });
-    // O código verdadeiro continua valendo: errar o segredo não queima o código de outra pessoa.
     const stored = await db.qrChallenge.findUniqueOrThrow({ where: { id } });
     expect(stored.usedAt).toBeNull();
   });
@@ -237,6 +238,11 @@ describe('POST /access/qr (app)', () => {
       'formato antigo (UUID + segredo longo)',
       { code: `019a0000-0000-7000-8000-000000000999.${'a'.repeat(43)}`, ...position },
     ],
+    [
+      'formato antigo (id.segredo em base64url)',
+      { code: `${'A'.repeat(22)}.${'b'.repeat(22)}`, ...position },
+    ],
+    ['minúsculas', { code: UNKNOWN_CODE.toLowerCase(), ...position }],
     ['sem posição', { code: UNKNOWN_CODE }],
     [
       'latitude fora da faixa',

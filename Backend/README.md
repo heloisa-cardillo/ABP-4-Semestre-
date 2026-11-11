@@ -252,7 +252,7 @@ Terminal (ESP32)                         API                                   A
 
 **Firmware:** chame `POST /access/qr/challenge` com `Authorization: Terminal <credencial>` a cada `ttlSeconds` e exiba `code` como QR. Guarde o código só na memória.
 
-O `code` tem **45 caracteres** (`<id do desafio em base64url>.<segredo de 128 bits em base64url>`, 22 + 1 + 22). Até 53 caracteres o QR fica na versão 3 (29x29 módulos), que no OLED de 128x64 sai com 2 pixels por módulo e a câmera do celular lê com facilidade. O app deve enviar o texto lido exatamente como veio.
+O `code` tem **25 caracteres**, só dígitos e letras maiúsculas (Crockford base32, 125 bits aleatórios), e é o próprio segredo: o banco guarda só o hash e acha o desafio por ele. Nesse formato o QR usa o modo alfanumérico na **versão 1 (21x21 módulos)**: com 2 pixels por módulo tem 42 px e cabe inteiro nas 48 linhas azuis do OLED bicolor de 128x64, longe da faixa entre o amarelo e o azul, que atrapalha a leitura. O firmware já desenha o QR nessa área quando ele cabe. O app deve enviar o texto lido exatamente como veio.
 
 **App:** envie o texto lido do QR (`code`) e a posição atual do celular. A resposta é sempre `200` quando o QR é de um terminal:
 

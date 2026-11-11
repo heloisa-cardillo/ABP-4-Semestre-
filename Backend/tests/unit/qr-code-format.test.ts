@@ -1,51 +1,56 @@
 import { describe, expect, it } from 'vitest';
 import {
-  formatQrCode,
-  generateQrSecret,
-  parseQrCode,
-  QR_CODE_MAX_LENGTH,
+  generateQrCode,
+  isQrCode,
+  QR_CODE_ALPHABET,
+  QR_CODE_LENGTH,
   QR_CODE_PATTERN,
 } from '../../src/services/qr-code-format.js';
 
-const ID = '01a1cc14-3bc5-7467-b84b-a93e46e39538';
+/** Caracteres do modo alfanumérico do QR Code (ISO/IEC 18004). */
+const QR_ALPHANUMERIC = /^[0-9A-Z $%*+\-./:]*$/;
 
-describe('formato curto do QR Code', () => {
-  it('cabe num QR versão 3 (até 53 caracteres), legível no OLED de 128x64', () => {
-    const code = formatQrCode(ID, generateQrSecret());
-    expect(code).toHaveLength(45);
-    expect(code.length).toBeLessThanOrEqual(QR_CODE_MAX_LENGTH);
+describe('formato do QR Code', () => {
+  it('tem 25 caracteres: o máximo de um QR versão 1 (21x21) no modo alfanumérico', () => {
+    const code = generateQrCode();
+    expect(code).toHaveLength(QR_CODE_LENGTH);
+    expect(QR_CODE_LENGTH).toBe(25);
     expect(code).toMatch(QR_CODE_PATTERN);
   });
 
-  it('o segredo tem 128 bits aleatórios e muda a cada chamada', () => {
-    const a = generateQrSecret();
-    const b = generateQrSecret();
-    expect(Buffer.from(a, 'base64url')).toHaveLength(16);
-    expect(a).not.toBe(b);
+  it('usa só caracteres do modo alfanumérico do QR (maiúsculas e dígitos)', () => {
+    for (let i = 0; i < 200; i += 1) expect(generateQrCode()).toMatch(QR_ALPHANUMERIC);
+    expect(QR_CODE_ALPHABET).toMatch(QR_ALPHANUMERIC);
   });
 
-  it('ida e volta: devolve o mesmo id (UUID) e o mesmo segredo', () => {
-    const secret = generateQrSecret();
-    expect(parseQrCode(formatQrCode(ID, secret))).toEqual({ id: ID, secret });
+  it('alfabeto de 32 símbolos, sem I, L, O e U (não se confundem com 1, 0 e V)', () => {
+    expect(new Set(QR_CODE_ALPHABET).size).toBe(32);
+    expect(QR_CODE_ALPHABET).not.toMatch(/[ILOU]/);
   });
 
-  it('id em maiúsculas é normalizado para minúsculas', () => {
-    const secret = generateQrSecret();
-    expect(parseQrCode(formatQrCode(ID.toUpperCase(), secret))?.id).toBe(ID);
+  it('cada código é aleatório e diferente', () => {
+    const codes = new Set(Array.from({ length: 1000 }, () => generateQrCode()));
+    expect(codes.size).toBe(1000);
+  });
+
+  it('usa todo o alfabeto (125 bits aleatórios, 5 por caractere)', () => {
+    const seen = new Set(Array.from({ length: 400 }, () => generateQrCode()).join(''));
+    expect(seen.size).toBe(32);
   });
 
   it.each([
     ['vazio', ''],
-    ['sem o ponto', 'a'.repeat(45)],
+    ['curto demais', 'A'.repeat(24)],
+    ['longo demais', 'A'.repeat(26)],
+    ['minúsculas', 'a'.repeat(25)],
+    ['letra fora do alfabeto (O)', 'O'.repeat(25)],
     ['URL qualquer', 'https://exemplo.com'],
-    ['formato antigo (UUID + segredo de 43)', `${ID}.${'a'.repeat(43)}`],
-    ['caractere fora do base64url', `${'a'.repeat(21)}+.${'a'.repeat(22)}`],
-    ['id não canônico (bits de sobra no último caractere)', `${'A'.repeat(21)}B.${'a'.repeat(22)}`],
+    ['formato antigo (id.segredo)', `${'A'.repeat(22)}.${'b'.repeat(22)}`],
   ])('recusa código inválido: %s', (_nome, code) => {
-    expect(parseQrCode(code)).toBeNull();
+    expect(isQrCode(code)).toBe(false);
   });
 
-  it('recusa id que não é UUID ao montar o código', () => {
-    expect(() => formatQrCode('nao-e-uuid', generateQrSecret())).toThrow();
+  it('aceita um código gerado', () => {
+    expect(isQrCode(generateQrCode())).toBe(true);
   });
 });
