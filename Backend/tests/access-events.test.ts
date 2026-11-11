@@ -66,6 +66,7 @@ afterAll(() => db.$disconnect());
 const at = (date: string, hours: number) =>
   new Date(localDayStart(date, TZ).getTime() + hours * 3_600_000);
 
+/** Grava uma tentativa direto no banco. Negada sem motivo informado leva NO_AUTHORIZATION (o banco exige motivo). */
 function event(data: Partial<Prisma.AccessEventUncheckedCreateInput>) {
   return db.accessEvent.create({
     data: {
@@ -73,6 +74,7 @@ function event(data: Partial<Prisma.AccessEventUncheckedCreateInput>) {
       result: AccessResult.GRANTED,
       locationId: turnstile1Id,
       terminalId: terminal1Id,
+      ...(data.result === AccessResult.DENIED && { denyReason: DenyReason.NO_AUTHORIZATION }),
       ...data,
     },
   });
