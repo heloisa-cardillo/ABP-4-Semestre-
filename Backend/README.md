@@ -287,7 +287,15 @@ Em pull requests, só a etapa 1 roda.
 - Na tela do serviço, preencha `DATABASE_URL` com a URL do Neon.
 - Em _Settings → Deploy Hook_, copie a URL do hook.
 
-**3. GitHub** (quem é admin do repositório): _Settings → Environments → New environment_ `homologacao`
+**3. Broker MQTT no HiveMQ Cloud** (gratuito, em <https://console.hivemq.cloud>)
+
+- Crie um cluster **Serverless (Free)** e anote o host (ex.: `abc123.s1.eu.hivemq.cloud`). A porta com TLS é a `8883`.
+- Em _Access Management_, crie duas credenciais: `api-homolog` (a API publica as decisões) e `terminal-catraca1` (o ESP32 assina o tópico). Separadas, dá para trocar a senha do terminal sem derrubar a API.
+- No Render, preencha `MQTT_URL` (`mqtts://<host>:8883`), `MQTT_USERNAME` e `MQTT_PASSWORD` com a credencial da API. Depois do deploy, o log mostra `conectado ao broker MQTT`.
+- Para conferir: no _Web Client_ do HiveMQ, assine `terminals/#` e faça uma tentativa de acesso. A decisão aparece em `terminals/{terminalId}/decision`.
+- O plano gratuito não restringe por tópico: qualquer credencial vê todos os tópicos. A ACL por terminal fica para a US11.
+
+**4. GitHub** (quem é admin do repositório): _Settings → Environments → New environment_ `homologacao`
 
 | Tipo     | Nome                          | Valor                                                                                           |
 | -------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -305,7 +313,7 @@ Se faltar alguma configuração, o job de deploy falha logo no primeiro passo, d
 
 - O plano gratuito do Render **hiberna** depois de 15 minutos sem uso. A primeira chamada depois disso leva cerca de 1 minuto. Antes da Sprint Review, abra `/api/v1/health` para acordar o serviço.
 - Os dados de demonstração **não** são criados pelo pipeline, porque o seed imprimiria a credencial do terminal no log público. Para criá-los, rode `npx prisma db seed` localmente com `DATABASE_URL` do Neon e `SEED_DEMO_PASSWORD`.
-- O MQTT (Mosquitto) não está na homologação. Quando a comunicação com a catraca for para a nuvem, será preciso um broker gerenciado, como o HiveMQ Cloud gratuito.
+- O Mosquitto do `docker compose` é só para desenvolvimento local. Na homologação o broker é o HiveMQ Cloud (passo 3). Sem `MQTT_URL` no Render a API funciona normalmente, mas o terminal não recebe o aviso das leituras de QR.
 
 ## Modelo de dados
 
