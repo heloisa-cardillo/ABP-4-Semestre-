@@ -3,8 +3,9 @@ import type { PrismaClient, QrChallenge } from '../generated/prisma/client.js';
 export class QrChallengeRepository {
   constructor(private readonly db: PrismaClient) {}
 
-  findById(id: string): Promise<QrChallenge | null> {
-    return this.db.qrChallenge.findUnique({ where: { id } });
+  /** O código do QR é o segredo; o desafio é achado pelo hash dele (índice único). */
+  findBySecretHash(secretHash: string): Promise<QrChallenge | null> {
+    return this.db.qrChallenge.findUnique({ where: { secretHash } });
   }
 
   create(data: { terminalId: string; secretHash: string; expiresAt: Date }): Promise<QrChallenge> {

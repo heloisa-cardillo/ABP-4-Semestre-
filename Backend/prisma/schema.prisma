@@ -119,13 +119,13 @@ model Terminal {
 }
 
 /// QR Code rotativo exibido pelo terminal (RF: QR que muda a cada 10 segundos).
-/// O app lê o código `<id>.<segredo>` (os dois em base64url, 45 caracteres) e o devolve à API;
+/// O app lê o código (25 caracteres alfanuméricos, que são o próprio segredo) e o devolve à API;
 /// cada código vale uma única vez.
-/// Só o hash SHA-256 do segredo fica no banco.
+/// Só o hash SHA-256 do código fica no banco, e é por ele que o desafio é achado.
 model QrChallenge {
   id         String    @id @default(uuid(7)) @db.Uuid
   terminalId String    @map("terminal_id") @db.Uuid
-  secretHash String    @map("secret_hash") @db.Char(64)
+  secretHash String    @unique @map("secret_hash") @db.Char(64)
   expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
   /// Preenchido quando o código é usado. Código usado não vale de novo.
   usedAt     DateTime? @map("used_at") @db.Timestamptz(3)

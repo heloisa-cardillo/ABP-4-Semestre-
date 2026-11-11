@@ -1,15 +1,15 @@
 import { z } from 'zod';
 import { AccessResult, DenyReason } from '../generated/prisma/enums.js';
 import type { AccessDecision } from '../services/access-decision.js';
-import { parseQrCode, QR_CODE_PATTERN } from '../services/qr-code-format.js';
+import { QR_CODE_PATTERN } from '../services/qr-code-format.js';
 import type { IssuedQrCode } from '../services/qr-code.service.js';
 
 export const issuedQrCodeSchema = z
   .object({
     code: z.string().meta({
       description:
-        'Conteúdo a exibir no QR Code (45 caracteres, cabe num QR versão 3). Vale uma vez só, até `expiresAt`.',
-      example: 'AaHMFDvFdGe4S6k-RuOVOA.Xq3v9Lr2mT8wYc1KpZ0eNg',
+        'Conteúdo a exibir no QR Code: 25 caracteres, só maiúsculas e dígitos (QR versão 1, 21x21, modo alfanumérico). Vale uma vez só, até `expiresAt`.',
+      example: '7KQ2MX9DPV4TRH0ZB6WNCJ8EA',
     }),
     expiresAt: z.iso.datetime(),
     ttlSeconds: z
@@ -21,14 +21,10 @@ export const issuedQrCodeSchema = z
 
 export const redeemQrSchema = z
   .strictObject({
-    code: z
-      .string()
-      .regex(QR_CODE_PATTERN, 'Este QR Code não é de um terminal de acesso.')
-      .refine((code) => parseQrCode(code) !== null, 'Este QR Code não é de um terminal de acesso.')
-      .meta({
-        description: 'Texto lido do QR Code do terminal, sem alterar.',
-        example: 'AaHMFDvFdGe4S6k-RuOVOA.Xq3v9Lr2mT8wYc1KpZ0eNg',
-      }),
+    code: z.string().regex(QR_CODE_PATTERN, 'Este QR Code não é de um terminal de acesso.').meta({
+      description: 'Texto lido do QR Code do terminal, sem alterar (25 caracteres).',
+      example: '7KQ2MX9DPV4TRH0ZB6WNCJ8EA',
+    }),
     latitude: z.number().min(-90).max(90).meta({ example: -23.30501 }),
     longitude: z.number().min(-180).max(180).meta({ example: -45.96581 }),
   })
