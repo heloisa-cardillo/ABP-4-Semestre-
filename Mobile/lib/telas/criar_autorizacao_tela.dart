@@ -1,0 +1,259 @@
+import 'package:flutter/material.dart';
+
+import '../services/api_service.dart';
+import '../tema.dart';
+
+class CriarAutorizacaoTela extends StatefulWidget {
+  final ApiService apiService;
+
+  const CriarAutorizacaoTela({super.key, required this.apiService});
+
+  @override
+  State<CriarAutorizacaoTela> createState() => _CriarAutorizacaoTelaState();
+}
+
+class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
+  final _dataInicio = TextEditingController();
+  final _dataTermino = TextEditingController();
+  final _horarioInicial = TextEditingController();
+  final _horarioFinal = TextEditingController();
+
+  bool _visitante = false;
+
+  @override
+  void dispose() {
+    _dataInicio.dispose();
+    _dataTermino.dispose();
+    _horarioInicial.dispose();
+    _horarioFinal.dispose();
+    super.dispose();
+  }
+
+  Widget _rotulo(String texto) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 6),
+      child: Text(
+        texto,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.bold,
+          color: Cores.azul,
+        ),
+      ),
+    );
+  }
+
+  Widget _seletor(String hint) {
+    return DropdownButtonFormField<String>(
+      isExpanded: true,
+      hint: Text(hint),
+      items: const [],
+      onChanged: (_) {},
+    );
+  }
+
+  Widget _texto(
+    String rotulo, {
+    bool senha = false,
+    TextInputType teclado = TextInputType.text,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _rotulo(rotulo),
+        TextField(
+          obscureText: senha,
+          keyboardType: teclado,
+          style: const TextStyle(fontSize: 16, color: Cores.texto),
+        ),
+      ],
+    );
+  }
+
+  Widget _opcao(String texto, bool selecionada, VoidCallback aoTocar) {
+    return Expanded(
+      child: InkWell(
+        onTap: aoTocar,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          alignment: Alignment.center,
+          color: selecionada ? Cores.azul2 : Colors.white,
+          child: Text(
+            texto,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: selecionada ? Colors.white : Cores.azul2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _escolherData(TextEditingController controller) async {
+    final agora = DateTime.now();
+    final data = await showDatePicker(
+      context: context,
+      initialDate: agora,
+      firstDate: DateTime(agora.year - 1),
+      lastDate: DateTime(agora.year + 5),
+    );
+    if (data == null) return;
+    final dia = data.day.toString().padLeft(2, '0');
+    final mes = data.month.toString().padLeft(2, '0');
+    controller.text = '$dia/$mes/${data.year}';
+  }
+
+  Future<void> _escolherHorario(TextEditingController controller) async {
+    final horario = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+    );
+    if (horario == null || !mounted) return;
+    controller.text = horario.format(context);
+  }
+
+  Widget _campo(TextEditingController controller, VoidCallback aoTocar) {
+    return TextField(
+      controller: controller,
+      readOnly: true,
+      onTap: aoTocar,
+      style: const TextStyle(fontSize: 16, color: Cores.texto),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          color: Cores.azul,
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          child: const SafeArea(
+            bottom: false,
+            child: Text(
+              'Criar autorização',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _rotulo('Pessoa autorizada'),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Cores.azul2, width: 2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Row(
+                    children: [
+                      _opcao(
+                        'Condômino',
+                        !_visitante,
+                        () => setState(() => _visitante = false),
+                      ),
+                      _opcao(
+                        'Visitante novo',
+                        _visitante,
+                        () => setState(() => _visitante = true),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_visitante) ...[
+                  _texto('Nome'),
+                  _texto('E-mail', teclado: TextInputType.emailAddress),
+                  _texto('Senha', senha: true),
+                  _texto('Código da tag NFC'),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  _seletor('Selecione o condômino'),
+                ],
+                _rotulo('Local de acesso'),
+                _seletor('Selecione o local'),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _rotulo('Data de início'),
+                          _campo(_dataInicio, () => _escolherData(_dataInicio)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _rotulo('Data de término'),
+                          _campo(
+                            _dataTermino,
+                            () => _escolherData(_dataTermino),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _rotulo('Horário inicial'),
+                          _campo(
+                            _horarioInicial,
+                            () => _escolherHorario(_horarioInicial),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _rotulo('Horário final'),
+                          _campo(
+                            _horarioFinal,
+                            () => _escolherHorario(_horarioFinal),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                _rotulo('Número de utilizações'),
+                const TextField(
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(fontSize: 16, color: Cores.texto),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: () {},
+                  child: const Text('Criar autorização'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
