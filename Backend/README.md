@@ -289,7 +289,17 @@ Em pull requests, só a etapa 1 roda.
 - Na tela do serviço, preencha `DATABASE_URL` com a URL do Neon.
 - Em _Settings → Deploy Hook_, copie a URL do hook.
 
-**3. GitHub** (quem é admin do repositório): _Settings → Environments → New environment_ `homologacao`
+**3. Broker MQTT no EMQX Cloud Serverless** (gratuito, em <https://www.emqx.com/en/cloud/serverless-mqtt>)
+
+- Crie um _EMQX Broker_ no plano **Serverless**, com **Spend Limit 0** (só a cota gratuita: se acabar, o broker é suspenso em vez de cobrar). A cota de 1 milhão de minutos de sessão por mês sobra: API e terminal conectados 24h gastam cerca de 86 mil.
+- Em _Deployment Overview_, anote o **Address** (ex.: `xxxx.ala.eu-central-1.emqxsl.com`). O Serverless só aceita TLS: porta `8883` (MQTT) ou `8084` (WebSocket).
+- Em _Access Control → Authentication_, crie dois usuários: `api-homolog` (a API publica as decisões) e `terminal-catraca1` (o ESP32 assina o tópico). Separados, dá para trocar a senha do terminal sem derrubar a API.
+- No Render, preencha `MQTT_URL` (`mqtts://<address>:8883`), `MQTT_USERNAME` e `MQTT_PASSWORD` com o usuário da API e faça um deploy (a API só lê as variáveis ao subir). O log mostra `conectado ao broker MQTT` e o card _Sessions_ do EMQX passa a 1.
+- Para conferir a mensagem: em _Diagnostics → Online Test_ do EMQX, conecte com o usuário do terminal, assine `terminals/#` e faça uma tentativa de acesso. A decisão aparece em `terminals/{terminalId}/decision`.
+- No ESP32, o certificado para o `WiFiClientSecure` é o _CA Certificate_ baixado no _Deployment Overview_. A API não precisa dele.
+- A ACL por terminal (cada um só lê o próprio tópico) fica para a US11.
+
+**4. GitHub** (quem é admin do repositório): _Settings → Environments → New environment_ `homologacao`
 
 | Tipo     | Nome                          | Valor                                                                                           |
 | -------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -307,7 +317,7 @@ Se faltar alguma configuração, o job de deploy falha logo no primeiro passo, d
 
 - O plano gratuito do Render **hiberna** depois de 15 minutos sem uso. A primeira chamada depois disso leva cerca de 1 minuto. Antes da Sprint Review, abra `/api/v1/health` para acordar o serviço.
 - Os dados de demonstração **não** são criados pelo pipeline, porque o seed imprimiria a credencial do terminal no log público. Para criá-los, rode `npx prisma db seed` localmente com `DATABASE_URL` do Neon e `SEED_DEMO_PASSWORD`.
-- O MQTT (Mosquitto) não está na homologação. Quando a comunicação com a catraca for para a nuvem, será preciso um broker gerenciado, como o HiveMQ Cloud gratuito.
+- O Mosquitto do `docker compose` é só para desenvolvimento local. Na homologação o broker é o EMQX Cloud Serverless (passo 3). Sem `MQTT_URL` no Render a API funciona normalmente, mas o terminal não recebe o aviso das leituras de QR.
 
 ## Modelo de dados
 

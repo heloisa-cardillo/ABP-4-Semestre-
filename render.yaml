@@ -27,3 +27,11 @@ services:
       # URL do PostgreSQL no Neon, com ?sslmode=require. Preencher no painel do Render.
       - key: DATABASE_URL
         sync: false
+      # Broker MQTT gerenciado (EMQX Cloud Serverless), que avisa a catraca da decisão. Preencher no painel do Render.
+      # Ex.: mqtts://xxxx.ala.eu-central-1.emqxsl.com:8883. Vazio = aviso à catraca desligado.
+      - key: MQTT_URL
+        sync: false
+      - key: MQTT_USERNAME
+        sync: false
+      - key: MQTT_PASSWORD
+        sync: false
