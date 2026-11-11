@@ -107,7 +107,8 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
     final agora = DateTime.now();
     final data = await showDatePicker(
       context: context,
-      initialDate: (inicio ? _inicio : _fim) ?? (inicio ? agora : (_inicio ?? agora)),
+      initialDate:
+          (inicio ? _inicio : _fim) ?? (inicio ? agora : (_inicio ?? agora)),
       firstDate: DateTime(agora.year - 1),
       lastDate: DateTime(agora.year + 5),
     );
