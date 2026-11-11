@@ -12,6 +12,7 @@ import { TerminalRepository } from './repositories/terminal.repository.js';
 import { UserRepository } from './repositories/user.repository.js';
 import type { AccessDecider } from './services/access-decision.js';
 import { AccessDecisionService } from './services/access-decision.service.js';
+import { AccessHistoryService } from './services/access-history.service.js';
 import { AccessService } from './services/access.service.js';
 import { AuthService } from './services/auth.service.js';
 import { AuthorizationService } from './services/authorization.service.js';
@@ -41,6 +42,8 @@ export interface AppContainer {
     /** Entrada das rotas de acesso (NFC e QR): decide e avisa a catraca. */
     access: AccessService;
     qr: QrCodeService;
+    /** Consulta do histórico de tentativas de acesso. */
+    accessHistory: AccessHistoryService;
   };
 }
 
@@ -70,6 +73,7 @@ export function createContainer(
   const locationRepository = new LocationRepository(prisma);
   const terminalRepository = new TerminalRepository(prisma);
   const authorizationRepository = new AuthorizationRepository(prisma);
+  const accessEventRepository = new AccessEventRepository(prisma);
   const clock = overrides.clock ?? systemClock(env.BUILDING_TIMEZONE);
 
   const accessDecision = new AccessDecisionService(
@@ -77,7 +81,7 @@ export function createContainer(
     userRepository,
     locationRepository,
     authorizationRepository,
-    new AccessEventRepository(prisma),
+    accessEventRepository,
     clock,
     env.BUILDING_TIMEZONE,
   );
@@ -128,6 +132,11 @@ export function createContainer(
         access,
         clock,
         env.QR_CODE_TTL_SECONDS,
+      ),
+      accessHistory: new AccessHistoryService(
+        accessEventRepository,
+        locationRepository,
+        env.BUILDING_TIMEZONE,
       ),
     },
   };

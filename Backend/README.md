@@ -90,21 +90,23 @@ A dependência aponta para dentro: rota → controller → service → repositor
 
 ## Autenticação (para quem consome a API)
 
-| Rota                        | Quem         | O que faz                                              |
-| --------------------------- | ------------ | ------------------------------------------------------ |
-| `POST /auth/login`          | público      | E-mail e senha → sessão                                |
-| `POST /auth/refresh`        | público      | Troca o refresh token por uma sessão nova              |
-| `POST /auth/logout`         | público      | Encerra a sessão do aparelho                           |
-| `GET /auth/me`              | autenticado  | Dados do usuário logado                                |
-| `/users` (CRUD)             | só **ADMIN** | Cadastro de administradores, condôminos e visitantes   |
-| `/locations` (CRUD)         | só **ADMIN** | Edifício › Portaria › Porta › Catraca, com coordenadas |
-| `/terminals` (CRUD)         | só **ADMIN** | Terminais nas catracas e credencial do dispositivo     |
-| `GET /terminals/me`         | **terminal** | O dispositivo confere a credencial e onde está         |
-| `/authorizations`           | só **ADMIN** | Cria, lista com filtros, busca e cancela autorizações  |
-| `GET /me/authorizations`    | autenticado  | Autorizações da própria pessoa logada                  |
-| `POST /access/qr/challenge` | **terminal** | Próximo QR Code para exibir (vale 10 s, uso único)     |
-| `POST /access/qr`           | autenticado  | O app envia o QR lido e a posição do celular           |
-| `POST /access/nfc`          | **terminal** | O terminal envia o UID da tag NFC lida                 |
+| Rota                        | Quem         | O que faz                                               |
+| --------------------------- | ------------ | ------------------------------------------------------- |
+| `POST /auth/login`          | público      | E-mail e senha → sessão                                 |
+| `POST /auth/refresh`        | público      | Troca o refresh token por uma sessão nova               |
+| `POST /auth/logout`         | público      | Encerra a sessão do aparelho                            |
+| `GET /auth/me`              | autenticado  | Dados do usuário logado                                 |
+| `/users` (CRUD)             | só **ADMIN** | Cadastro de administradores, condôminos e visitantes    |
+| `/locations` (CRUD)         | só **ADMIN** | Edifício › Portaria › Porta › Catraca, com coordenadas  |
+| `/terminals` (CRUD)         | só **ADMIN** | Terminais nas catracas e credencial do dispositivo      |
+| `GET /terminals/me`         | **terminal** | O dispositivo confere a credencial e onde está          |
+| `/authorizations`           | só **ADMIN** | Cria, lista com filtros, busca e cancela autorizações   |
+| `GET /me/authorizations`    | autenticado  | Autorizações da própria pessoa logada                   |
+| `POST /access/qr/challenge` | **terminal** | Próximo QR Code para exibir (vale 10 s, uso único)      |
+| `POST /access/qr`           | autenticado  | O app envia o QR lido e a posição do celular            |
+| `POST /access/nfc`          | **terminal** | O terminal envia o UID da tag NFC lida                  |
+| `GET /access-events`        | só **ADMIN** | Histórico de todas as tentativas de acesso, com filtros |
+| `GET /me/access-events`     | autenticado  | Tentativas de acesso da própria pessoa logada           |
 
 Fluxo no app (Flutter):
 
@@ -147,6 +149,18 @@ Exemplo de criação:
 - A autorização vale para o local indicado **e para tudo abaixo dele**: autorizar o edifício libera todas as catracas dele.
 - Cada autorização volta com `situation`, calculada na hora: `VALID` (vale hoje), `SCHEDULED` (ainda não começou), `EXPIRED` (terminou), `EXHAUSTED` (usos esgotados) ou `CANCELLED`. Use isso para a etiqueta de situação na tela.
 - Erros de regra (`422`): `END_DATE_IN_PAST`, `USER_NOT_FOUND`, `USER_INACTIVE`, `LOCATION_NOT_FOUND`, `LOCATION_INACTIVE`. E-mail de visitante repetido: `409 EMAIL_IN_USE`.
+
+## Histórico de acessos (para o app)
+
+Toda tentativa, liberada ou negada, por QR ou NFC, fica em `access_events`. A lista vem da mais recente para a mais antiga, paginada (`page`, `pageSize` até 100).
+
+| Rota                    | Uso no app                                                                                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /access-events`    | Tela "Histórico" do administrador. Filtros: `userId`, `locationId` (inclui tudo abaixo dele), `terminalId`, `method` (`QR`/`NFC`), `result` (`GRANTED`/`DENIED`), `from`/`to`. |
+| `GET /me/access-events` | Histórico da própria pessoa. Filtros `method`, `result`, `from`, `to`; mandar `userId` dá `400`.                                                                               |
+
+- `from` e `to` são dias do calendário **no fuso do edifício**, os dois inclusive: `from=2026-11-10&to=2026-11-10` traz o dia 10 inteiro, da meia-noite às 23:59:59 de São Paulo.
+- Cada item traz `occurredAt`, `method`, `result`, `denyReason` (nulo quando liberado), `user`, `location` e `terminal` (cada um nulo quando não se aplica, ex.: tag desconhecida não tem `user`), além de `credential` e, no QR, `latitude`, `longitude` e `distanceMeters`.
 
 ## Terminal de acesso (para o firmware)
 
