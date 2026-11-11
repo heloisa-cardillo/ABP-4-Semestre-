@@ -142,6 +142,129 @@ class ApiService {
     );
   }
 
+  // ---------- Usuários e locais ----------
+
+  Future<List<Pessoa>> listarUsuarios(String role) async {
+        final body = await _chamar('GET', '/users',
+        query: {'role': role, 'pageSize': '100', 'active': 'true'});
+    return _extrairLista(body)
+        .map((j) => Pessoa.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> salvarUsuario({
+    String? id,
+    required Map<String, dynamic> dados,
+  }) async {
+    await _chamar(id == null ? 'POST' : 'PATCH',
+        id == null ? '/users' : '/users/$id',
+        corpo: dados);
+  }
+
+  Future<List<Local>> listarLocais() async {
+        final body = await _chamar('GET', '/locations',
+        query: {'pageSize': '100', 'active': 'true'});
+    return _extrairLista(body)
+        .map((j) => Local.fromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> salvarLocal({
+    String? id,
+    required Map<String, dynamic> dados,
+  }) async {
+    await _chamar(id == null ? 'POST' : 'PATCH',
+        id == null ? '/locations' : '/locations/$id',
+        corpo: dados);
+  }
+
+  List<dynamic> _extrairLista(dynamic body) {
+    if (body is List) return body;
+    if (body is Map<String, dynamic>) {
+      return body['data'] as List<dynamic>? ?? [];
+    }
+    return [];
+  }
+
+  /// Chamada genérica autenticada. Lança [ApiException] com mensagem amigável.
+  Future<dynamic> _chamar(
+    String metodo,
+    String caminho, {
+    Map<String, String>? query,
+    Map<String, dynamic>? corpo,
+  }) async {
+    if (_token == null) {
+      throw const ApiException(
+        'Sessão expirada. Faça login novamente.',
+        sessaoExpirada: true,
+      );
+    }
+
+    final uri =
+        Uri.parse('$_baseUrl$caminho').replace(queryParameters: query);
+    final http.Response response;
+    try {
+      final request = http.Request(metodo, uri)..headers.addAll(authHeaders);
+      if (corpo != null) request.body = jsonEncode(corpo);
+      final streamed =
+          await request.send().timeout(const Duration(seconds: 30));
+      response = await http.Response.fromStream(streamed);
+    } on TimeoutException {
+      throw const ApiException(
+        'O servidor demorou para responder. Tente novamente.',
+      );
+    } on SocketException {
+      throw const ApiException(
+        'Sem conexão com o servidor. Verifique sua internet e tente novamente.',
+      );
+    } on http.ClientException {
+      throw const ApiException(
+        'Sem conexão com o servidor. Verifique sua internet e tente novamente.',
+      );
+    }
+
+    final status = response.statusCode;
+    if (status >= 200 && status < 300) {
+      if (response.body.isEmpty) return null;
+      try {
+        return jsonDecode(response.body);
+      } catch (_) {
+        throw const ApiException('Resposta inesperada do servidor.');
+      }
+    }
+    if (status == 401) {
+      await logout();
+      throw const ApiException(
+        'Sessão expirada. Faça login novamente.',
+        sessaoExpirada: true,
+      );
+    }
+    if (status == 403) {
+      throw const ApiException('Você não tem permissão para esta ação.');
+    }
+    if (status == 400 || status == 409 || status == 422) {
+      throw ApiException(
+        _mensagemDoErro(response.body) ?? 'Verifique os dados informados.',
+      );
+    }
+    if (status >= 500) {
+      throw const ApiException(
+        'O servidor está indisponível no momento. Tente novamente em instantes.',
+      );
+    }
+    throw ApiException('Não foi possível concluir a ação (código $status).');
+  }
+
+   String? _mensagemDoErro(String body) {
+    try {
+      final data = jsonDecode(body);
+      final erro = data is Map ? data['error'] : null;
+      final m = erro is Map ? erro['message'] : null;
+      if (m is String && m.isNotEmpty) return m;
+    } catch (_) {}
+    return null;
+  }
+
   Map<String, String> get authHeaders => {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $_token',
@@ -320,6 +443,61 @@ class Location {
       id: json['id'] as String,
       name: json['name'] as String,
       type: json['type'] as String,
+    );
+  }
+}
+
+class Pessoa {
+  final String id;
+  final String name;
+  final String email;
+  final String? nfcUid;
+
+  Pessoa({
+    required this.id,
+    required this.name,
+    required this.email,
+    this.nfcUid,
+  });
+
+  factory Pessoa.fromJson(Map<String, dynamic> json) {
+    return Pessoa(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      email: json['email'] as String? ?? '',
+      nfcUid: json['nfcUid'] as String?,
+    );
+  }
+}
+
+class Local {
+  final String id;
+  final String name;
+  final String type;
+  final String? address;
+  final double? latitude;
+  final double? longitude;
+  final String? parentId;
+
+  Local({
+    required this.id,
+    required this.name,
+    required this.type,
+    this.address,
+    this.latitude,
+    this.longitude,
+    this.parentId,
+  });
+
+  factory Local.fromJson(Map<String, dynamic> json) {
+    return Local(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      type: json['type'] as String,
+      address: json['address'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      parentId: json['parentId'] as String?,
     );
   }
 }
