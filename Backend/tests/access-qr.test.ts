@@ -6,6 +6,7 @@ import type {
   AccessDecider,
   AccessDecision,
 } from '../src/services/access-decision.js';
+import { formatQrCode, parseQrCode } from '../src/services/qr-code-format.js';
 import { sha256 } from '../src/services/token.service.js';
 import { createTestContext, resetDatabase, sessionFor } from './helpers.js';
 
@@ -82,9 +83,14 @@ const issue = (auth = terminalAuth) =>
 const redeem = (body: object, auth = userAuth) =>
   request(app).post('/api/v1/access/qr').set('Authorization', auth).send(body);
 
-async function newCode(): Promise<{ code: string; id: string }> {
+/** Código de um desafio que não existe no banco, no formato válido. */
+const UNKNOWN_CODE = formatQrCode('019a0000-0000-7000-8000-000000000999', 'a'.repeat(22));
+
+async function newCode(): Promise<{ code: string; id: string; secret: string }> {
   const res = await issue();
-  return { code: res.body.code, id: res.body.code.split('.')[0] };
+  const parsed = parseQrCode(res.body.code);
+  if (!parsed) throw new Error(`código fora do formato: ${res.body.code}`);
+  return { code: res.body.code, ...parsed };
 }
 
 describe('POST /access/qr/challenge (terminal)', () => {
@@ -95,18 +101,20 @@ describe('POST /access/qr/challenge (terminal)', () => {
     expect(res.status).toBe(201);
     expect(res.headers['cache-control']).toBe('no-store');
     expect(res.body.ttlSeconds).toBe(10);
-    expect(res.body.code).toMatch(/^[0-9a-f-]{36}\.[\w-]{43}$/);
+    // Curto o bastante para virar QR versão 3 (29x29) e ser lido no OLED de 128x64 do terminal.
+    expect(res.body.code).toMatch(/^[\w-]{22}\.[\w-]{22}$/);
+    expect(res.body.code.length).toBeLessThanOrEqual(53);
     const expiresAt = new Date(res.body.expiresAt).getTime();
     expect(expiresAt - before).toBeGreaterThanOrEqual(9_000);
     expect(expiresAt - before).toBeLessThanOrEqual(11_000);
   });
 
   it('o banco guarda só o hash do segredo', async () => {
-    const { code, id } = await newCode();
+    const { id, secret } = await newCode();
     const stored = await db.qrChallenge.findUniqueOrThrow({ where: { id } });
     expect(stored.terminalId).toBe(terminalId);
-    expect(stored.secretHash).toBe(sha256(code.split('.')[1] as string));
-    expect(JSON.stringify(stored)).not.toContain(code.split('.')[1]);
+    expect(stored.secretHash).toBe(sha256(secret));
+    expect(JSON.stringify(stored)).not.toContain(secret);
   });
 
   it('cada chamada gera um código diferente', async () => {
@@ -190,7 +198,7 @@ describe('POST /access/qr (app)', () => {
   it('segredo errado: INVALID_CREDENTIAL, sem atribuir a tentativa ao terminal', async () => {
     const { id } = await newCode();
 
-    const res = await redeem({ code: `${id}.${'x'.repeat(43)}`, ...position });
+    const res = await redeem({ code: formatQrCode(id, 'x'.repeat(22)), ...position });
 
     expect(res.body.denyReason).toBe('INVALID_CREDENTIAL');
     expect(decider.attempts[0]).toMatchObject({
@@ -205,10 +213,7 @@ describe('POST /access/qr (app)', () => {
   });
 
   it('código inexistente: INVALID_CREDENTIAL', async () => {
-    const res = await redeem({
-      code: `019a0000-0000-7000-8000-000000000999.${'a'.repeat(43)}`,
-      ...position,
-    });
+    const res = await redeem({ code: UNKNOWN_CODE, ...position });
     expect(res.body.denyReason).toBe('INVALID_CREDENTIAL');
     expect(decider.attempts[0]?.terminalId).toBeNull();
   });
@@ -228,11 +233,15 @@ describe('POST /access/qr (app)', () => {
 
   it.each([
     ['QR que não é do sistema', { code: 'https://exemplo.com', ...position }],
-    ['sem posição', { code: `019a0000-0000-7000-8000-000000000999.${'a'.repeat(43)}` }],
+    [
+      'formato antigo (UUID + segredo longo)',
+      { code: `019a0000-0000-7000-8000-000000000999.${'a'.repeat(43)}`, ...position },
+    ],
+    ['sem posição', { code: UNKNOWN_CODE }],
     [
       'latitude fora da faixa',
       {
-        code: `019a0000-0000-7000-8000-000000000999.${'a'.repeat(43)}`,
+        code: UNKNOWN_CODE,
         latitude: 91,
         longitude: 0,
       },

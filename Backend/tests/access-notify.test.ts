@@ -7,6 +7,7 @@ import { LocationType, Role } from '../src/generated/prisma/enums.js';
 import { MqttTurnstileNotifier } from '../src/adapters/mqtt-turnstile-notifier.js';
 import type { AccessDecision } from '../src/services/access-decision.js';
 import { addDays, dateToDb, localDate, timeToDb } from '../src/services/local-time.js';
+import { formatQrCode } from '../src/services/qr-code-format.js';
 import type { TurnstileNotifier } from '../src/services/turnstile-notifier.js';
 import { createTestContext, createUser, login, resetDatabase, sessionFor } from './helpers.js';
 
@@ -169,7 +170,10 @@ describe('aviso à catraca e eventos no QR Code', () => {
     const res = await request(app)
       .post('/api/v1/access/qr')
       .set('Authorization', anaAuth)
-      .send({ code: `019a0000-0000-7000-8000-000000000999.${'a'.repeat(43)}`, ...POSITION });
+      .send({
+        code: formatQrCode('019a0000-0000-7000-8000-000000000999', 'a'.repeat(22)),
+        ...POSITION,
+      });
 
     expect(res.body.denyReason).toBe('INVALID_CREDENTIAL');
     expect(await db.accessEvent.count()).toBe(1);

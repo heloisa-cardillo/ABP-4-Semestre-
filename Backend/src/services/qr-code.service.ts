@@ -5,13 +5,17 @@ import type { QrChallengeRepository } from '../repositories/qr-challenge.reposit
 import type { AuthContext } from '../shared/auth-context.js';
 import type { AccessDecider, AccessDecision } from './access-decision.js';
 import type { Clock } from './local-time.js';
-import { generateOpaqueToken, sha256 } from './token.service.js';
+import { formatQrCode, generateQrSecret, parseQrCode } from './qr-code-format.js';
+import { sha256 } from './token.service.js';
 
 /** Códigos vencidos há mais que isso são apagados quando o terminal pede um novo. */
 const CLEANUP_AFTER_MS = 60 * 60 * 1000;
 
 export interface IssuedQrCode {
-  /** Conteúdo do QR Code: `<id>.<segredo>`. O segredo só existe aqui; o banco guarda o hash. */
+  /**
+   * Conteúdo do QR Code, com 45 caracteres (veja `qr-code-format.ts`).
+   * O segredo só existe aqui; o banco guarda o hash.
+   */
   code: string;
   expiresAt: Date;
   ttlSeconds: number;
@@ -31,7 +35,7 @@ export class QrCodeService {
 
   async issue(terminalId: string): Promise<IssuedQrCode> {
     const now = this.clock.now();
-    const secret = generateOpaqueToken();
+    const secret = generateQrSecret();
     const challenge = await this.challenges.create({
       terminalId,
       secretHash: sha256(secret),
@@ -39,7 +43,7 @@ export class QrCodeService {
     });
     await this.challenges.deleteExpired(terminalId, new Date(now.getTime() - CLEANUP_AFTER_MS));
     return {
-      code: `${challenge.id}.${secret}`,
+      code: formatQrCode(challenge.id, secret),
       expiresAt: challenge.expiresAt,
       ttlSeconds: this.ttlSeconds,
     };
@@ -50,7 +54,10 @@ export class QrCodeService {
    * Aqui só se confere o código; quem pode entrar onde é regra do serviço de decisão.
    */
   async redeem(actor: AuthContext, input: RedeemQrInput): Promise<AccessDecision> {
-    const [id, secret] = input.code.split('.') as [string, string];
+    // A rota já validou o formato (redeemQrSchema); aqui ele sempre é lido.
+    const parsed = parseQrCode(input.code);
+    if (!parsed) throw new Error('Código de QR fora do formato chegou ao serviço.');
+    const { id, secret } = parsed;
     const position = { latitude: input.latitude, longitude: input.longitude };
     const attempt = { method: AccessMethod.QR, userId: actor.userId, credential: id, position };
 
