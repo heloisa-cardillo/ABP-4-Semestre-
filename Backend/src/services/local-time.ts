@@ -56,6 +56,27 @@ export function toLocalDateTime(now: Date, timeZone: string): { date: DateOnly; 
   return { date: localDate(now, timeZone), time: localTime(now, timeZone) };
 }
 
+/**
+ * Instante em que o dia `date` começa (meia-noite local) no fuso informado.
+ * Ex.: `2026-11-11` em São Paulo (UTC-3) começa às `2026-11-11T03:00:00Z`.
+ * Serve para filtrar colunas `timestamptz` por dia do calendário do edifício.
+ */
+export function localDayStart(date: DateOnly, timeZone: string): Date {
+  const utcMidnight = dateToDb(date);
+  const p = parts(utcMidnight, timeZone);
+  const localAsUtc = Date.UTC(
+    Number(p.year),
+    Number(p.month) - 1,
+    Number(p.day),
+    Number(p.hour),
+    Number(p.minute),
+    Number(p.second),
+  );
+  // Diferença entre o relógio local e o UTC naquele instante (ex.: -3h em São Paulo).
+  const offset = localAsUtc - utcMidnight.getTime();
+  return new Date(utcMidnight.getTime() - offset);
+}
+
 /** Soma (ou subtrai, com valor negativo) dias a uma data `YYYY-MM-DD`. */
 export function addDays(date: DateOnly, days: number): DateOnly {
   const d = dateToDb(date);

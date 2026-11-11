@@ -5,6 +5,7 @@ import {
   dateToDb,
   isValidTimeZone,
   localDate,
+  localDayStart,
   localTime,
   systemClock,
   timeFromDb,
@@ -88,5 +89,26 @@ describe('systemClock', () => {
   it('devolve a data de hoje no fuso informado', () => {
     const clock = systemClock(SP);
     expect(clock.today()).toBe(localDate(new Date(), SP));
+  });
+});
+
+describe('localDayStart', () => {
+  it('meia-noite em São Paulo (UTC-3) é 03:00 UTC do mesmo dia', () => {
+    expect(localDayStart('2026-11-11', SP).toISOString()).toBe('2026-11-11T03:00:00.000Z');
+  });
+
+  it('em UTC é a própria meia-noite UTC', () => {
+    expect(localDayStart('2026-11-11', 'UTC').toISOString()).toBe('2026-11-11T00:00:00.000Z');
+  });
+
+  it('em fuso adiantado (Tóquio, UTC+9) cai no dia anterior em UTC', () => {
+    expect(localDayStart('2026-11-11', 'Asia/Tokyo').toISOString()).toBe(
+      '2026-11-10T15:00:00.000Z',
+    );
+  });
+
+  it('o instante devolvido é mesmo a meia-noite local', () => {
+    const start = localDayStart('2026-03-01', SP);
+    expect(toLocalDateTime(start, SP)).toEqual({ date: '2026-03-01', time: '00:00:00' });
   });
 });

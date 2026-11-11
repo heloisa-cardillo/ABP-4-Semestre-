@@ -38,6 +38,24 @@ export class LocationRepository {
     return rows.map((row) => row.id);
   }
 
+  /**
+   * O próprio local e todos os que estão abaixo dele, em qualquer nível.
+   * Ex.: para um edifício, ele mesmo, a portaria, as portas e as catracas. Local inexistente: `[]`.
+   * O limite de profundidade só protege contra ciclo; a hierarquia tem 4 níveis.
+   */
+  async findDescendantIds(locationId: string): Promise<string[]> {
+    const rows = await this.db.$queryRaw<{ id: string }[]>`
+      WITH RECURSIVE tree AS (
+        SELECT id, 0 AS depth FROM locations WHERE id = ${locationId}::uuid
+        UNION ALL
+        SELECT l.id, tree.depth + 1
+        FROM locations l JOIN tree ON l.parent_id = tree.id
+        WHERE tree.depth < 10
+      )
+      SELECT id::text AS id FROM tree`;
+    return rows.map((row) => row.id);
+  }
+
   create(data: Prisma.LocationUncheckedCreateInput): Promise<Location> {
     return this.db.location.create({ data });
   }
