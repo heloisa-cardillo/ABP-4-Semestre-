@@ -47,24 +47,27 @@ Entregar um sistema que integre três componentes:
 | :--: | :--------: | :--------- | :--------: | :----: |
 | 1 | 🔴 Alta | US1: Como usuário do sistema, quero fazer login pelo aplicativo com autenticação via JWT na API, para que apenas pessoas cadastradas tenham acesso ao sistema. | 8 | 1 |
 | 2 | 🔴 Alta | US2: Como administrador, quero ter as tabelas de usuários, locais, autorizações e eventos configuradas no banco de dados em nuvem e conectadas à API, para que as informações de controle de acesso sejam gravadas e consultadas de forma confiável. | 8 | 1 |
-| 3 | 🔴 Alta | US3: Como administrador, quero que o terminal ESP32 identifique uma tag NFC com o leitor PN532 e acione o servo motor, com os componentes funcionando localmente, para validar o mecanismo de liberação do acesso. | 8 | 1 |
+| 3 | 🔴 Alta | US3: Como administrador, quero que o terminal ESP32 identifique uma tag NFC com o leitor PN532 e acione o servo motor, com os componentes funcionando localmente, para validar o mecanismo de liberação do acesso. (Incorporada à US14.) | 8 | 1 → 3 |
 | 4 | 🔴 Alta | US4: Como equipe de desenvolvimento, quero ter o Docker configurado, o repositório organizado e a automação de testes funcionando com pelo menos um teste aprovado, para padronizar o ambiente e garantir a qualidade das entregas. | 5 | 1 |
 | 5 | 🔴 Alta | US5: Como equipe de desenvolvimento, quero os diagramas de arquitetura e de casos de uso e os materiais da apresentação organizados, para que todos entendam a solução e para realizar a review da Sprint 1. | 5 | 1 |
-| 6 | 🟠 Média | US6: Como administrador, quero cadastrar usuários e locais e criar, filtrar e cancelar autorizações de acesso pelo aplicativo, para controlar quem pode entrar, em qual local e em que período. | 13 | 2 |
-| 7 | 🟠 Média | US7: Como condômino ou visitante, quero consultar minhas autorizações e ler o QR Code que muda a cada 10 segundos no terminal, podendo aumentar o tamanho das letras do aplicativo, para ter o acesso validado pelo backend, inclusive pela distância de até 100 metros, e a catraca liberada ou negada, com a tentativa registrada. | 21 | 2 |
-| 8 | 🟠 Média | US8: Como condômino ou visitante, quero apresentar minha tag NFC a um terminal completo, com display, GPS, LEDs e buzzer, e ver a catraca abrir ou negar o acesso com sinalização visual ou sonora e a tentativa registrada, para entrar sem depender do aplicativo. | 21 | 2 |
+| 6 | 🟠 Média | US6: Como administrador, quero cadastrar usuários e locais e consultar, filtrar e cancelar autorizações de acesso pelo aplicativo, para controlar quem pode entrar e em qual local. | 8 | 2 |
+| 7 | 🟠 Média | US7: Como condômino ou visitante, quero consultar minhas autorizações pelo aplicativo e ter o QR Code validado pelo backend, conferindo o código de 10 segundos, a distância de até 100 metros, a autorização e o horário, com a tentativa registrada e a decisão enviada à catraca por MQTT, para ter um acesso seguro e rastreável. | 13 | 2 |
+| 8 | 🟠 Média | US8: Como condômino ou visitante, quero que a tag NFC seja validada pelo backend, com a tentativa registrada, para poder entrar sem depender do aplicativo. | 8 | 2 |
 | 9 | 🟠 Média | US9: Como equipe de desenvolvimento, quero o deploy automático em homologação depois que o CI passar, com o banco de dados em nuvem e retorno claro sobre as falhas e os sucessos do build, dos testes e do deploy, para entregar versões testadas e disponíveis para o time. | 14 | 2 |
-| 10 | 🟠 Média | US10: Como administrador, quero consultar o histórico de todas as tentativas de acesso, para ter rastreabilidade do que acontece no edifício. | 14 | 2 |
-| 11 | 🟡 Baixa | US11: Como administrador, quero que o terminal consuma pouca energia, continue registrando as tentativas quando ficar sem rede e tenha a comunicação e os dados sensíveis protegidos, para ter um sistema confiável e seguro. | 21 | 3 |
-| 12 | 🟡 Baixa | US12: Como usuário do sistema, quero os manuais de instalação e de uso e a documentação técnica concluída, incluindo a descrição da comunicação entre os elementos do sistema, para conseguir instalar e usar o sistema sem dificuldade. | 21 | 3 |
+| 10 | 🟠 Média | US10: Como administrador, quero que o histórico de todas as tentativas de acesso fique disponível na API, para ter rastreabilidade do que acontece no edifício. | 5 | 2 |
+| 11 | 🟠 Média | US13: Como administrador, quero criar autorizações pelo aplicativo, para um condômino já cadastrado ou para um visitante novo, com pessoa, local, datas, horários e número de utilizações, para liberar o acesso de quem precisa entrar. | 5 | 3 |
+| 12 | 🟠 Média | US14: Como condômino ou visitante, quero passar pela catraca lendo o QR Code do terminal pelo aplicativo, com câmera, GPS e tela de resultado, ou apresentando minha tag NFC a um terminal ESP32 completo, com display, GPS, servo, LEDs e buzzer, podendo aumentar o tamanho das letras do aplicativo, para entrar no edifício com o acesso liberado ou negado e a tentativa registrada. | 21 | 3 |
+| 13 | 🟠 Média | US15: Como administrador, quero consultar o histórico de todas as tentativas de acesso pelo aplicativo, para acompanhar quem entrou, onde e quando. | 9 | 3 |
+| 14 | 🟡 Baixa | US11: Como administrador, quero que o terminal consuma pouca energia, continue registrando as tentativas quando ficar sem rede e tenha a comunicação e os dados sensíveis protegidos, para ter um sistema confiável e seguro. | 21 | 3 |
+| 15 | 🟡 Baixa | US12: Como usuário do sistema, quero os manuais de instalação e de uso e a documentação técnica concluída, incluindo a descrição da comunicação entre os elementos do sistema, para conseguir instalar e usar o sistema sem dificuldade. | 21 | 3 |
 
 ## Cronograma de Sprints <a id="sprint"></a>
 
 | Sprint | Período | Entrega | Documentação |
 | --------------- | :-----------: | :--------- | ------------------------------------------------ |
 | **SPRINT 1** | 30/09 - 21/10 | Login com JWT na API, banco de dados com as tabelas de usuários, locais, terminais, autorizações e eventos conectado à API, e Docker com CI e testes automatizados. | [Sprint 1 Docs](Material%20Academico/Sprint%20Um) |
-| **SPRINT 2** | 22/10 - 11/11 | Administração de usuários, locais e autorizações pelo aplicativo, acesso por QR Code rotativo e tag NFC com validação no backend, catraca abrindo e deploy automático em homologação. | [Sprint 2 Docs](Material%20Academico/Sprint%20Dois) |
-| **SPRINT 3** | 12/11 - 25/11 | Histórico de acessos, terminal com baixo consumo e modo offline, comunicação segura e documentação concluída. | [Sprint 3 Docs](Material%20Academico/Sprint%20Tres) |
+| **SPRINT 2** | 22/10 - 11/11 | Cadastro de usuários e locais e consulta, filtro e cancelamento de autorizações pelo aplicativo, validação do QR Code rotativo e da tag NFC no backend com aviso à catraca por MQTT, histórico disponível na API e deploy automático em homologação. | [Sprint 2 Docs](Material%20Academico/Sprint%20Dois) |
+| **SPRINT 3** | 12/11 - 25/11 | Criação de autorizações pelo aplicativo, acesso pela catraca com QR Code no aplicativo e tag NFC no terminal ESP32, histórico de acessos no aplicativo, terminal com baixo consumo e modo offline, comunicação segura e documentação concluída. | [Sprint 3 Docs](Material%20Academico/Sprint%20Tres) |
 
 Datas das reviews: Sprint 1 em 21/10, Sprint 2 em 11/11 e Sprint 3 em 25/11, sempre às 19h30. A apresentação final tem data a definir, no fim do semestre.
 
@@ -183,7 +186,7 @@ Exemplo: `feat(US-01): adiciona login com JWT`
 │
 ├── Documentacao/
 │   ├── Arquitetura/
-│   │   └── arquitetura.png
+│   │   └── arquitetura do projeto.png
 │   ├── Casos de Uso/
 │   │   ├── Descricao.md
 │   │   └── Diagrama de Casos de Uso.png
