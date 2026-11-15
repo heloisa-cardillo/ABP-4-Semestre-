@@ -47,7 +47,7 @@ Entregar um sistema que integre três componentes:
 | :--: | :--------: | :--------- | :--------: | :----: |
 | 1 | 🔴 Alta | US1: Como usuário do sistema, quero fazer login pelo aplicativo com autenticação via JWT na API, para que apenas pessoas cadastradas tenham acesso ao sistema. | 8 | 1 |
 | 2 | 🔴 Alta | US2: Como administrador, quero ter as tabelas de usuários, locais, autorizações e eventos configuradas no banco de dados em nuvem e conectadas à API, para que as informações de controle de acesso sejam gravadas e consultadas de forma confiável. | 8 | 1 |
-| 3 | 🔴 Alta | US3: Como administrador, quero que o terminal ESP32 identifique uma tag NFC com o leitor PN532 e acione o servo motor, com os componentes funcionando localmente, para validar o mecanismo de liberação do acesso. (Incorporada à US14.) | 8 | 1 → 3 |
+| 3 | 🔴 Alta | US3: Como administrador, quero que o terminal ESP32 identifique uma tag NFC com o leitor PN532 e acione o servo motor, com os componentes funcionando localmente, para validar o mecanismo de liberação do acesso. | 8 | 1 |
 | 4 | 🔴 Alta | US4: Como equipe de desenvolvimento, quero ter o Docker configurado, o repositório organizado e a automação de testes funcionando com pelo menos um teste aprovado, para padronizar o ambiente e garantir a qualidade das entregas. | 5 | 1 |
 | 5 | 🔴 Alta | US5: Como equipe de desenvolvimento, quero os diagramas de arquitetura e de casos de uso e os materiais da apresentação organizados, para que todos entendam a solução e para realizar a review da Sprint 1. | 5 | 1 |
 | 6 | 🟠 Média | US6: Como administrador, quero cadastrar usuários e locais e consultar, filtrar e cancelar autorizações de acesso pelo aplicativo, para controlar quem pode entrar e em qual local. | 8 | 2 |
