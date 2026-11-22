@@ -7,8 +7,10 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String _baseUrl =
-      'https://controle-acesso-api-homolog.onrender.com/api/v1';
+static const String _baseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'https://controle-acesso-api-homolog.onrender.com/api/v1',
+  );
   static const String _tokenKey = 'auth_token';
   static const String _userProfileKey = 'user_profile';
 
@@ -209,6 +211,44 @@ class ApiService {
     );
   }
 
+  /// Cria uma autorização (POST /authorizations). [dados] precisa ter `userId`
+  /// (pessoa já cadastrada) ou `visitor` (visitante novo), um dos dois.
+  Future<Authorization> criarAutorizacao(Map<String, dynamic> dados) async {
+    final body = await _chamar('POST', '/authorizations', corpo: dados);
+    try {
+      return Authorization.fromJson(body as Map<String, dynamic>);
+    } catch (_) {
+      throw const ApiException('Resposta inesperada do servidor.');
+    }
+  }
+
+  /// Cadastra um visitante (POST /users) e devolve o id dele.
+  /// Usado quando o visitante tem tag NFC: o `visitor` embutido na criação da
+  /// autorização não aceita `nfcUid`.
+  Future<String> criarVisitante({
+    required String nome,
+    required String email,
+    required String senha,
+    required String nfcUid,
+  }) async {
+    final body = await _chamar(
+      'POST',
+      '/users',
+      corpo: {
+        'name': nome,
+        'email': email,
+        'password': senha,
+        'role': 'VISITOR',
+        'nfcUid': nfcUid,
+      },
+    );
+    try {
+      return (body as Map<String, dynamic>)['id'] as String;
+    } catch (_) {
+      throw const ApiException('Resposta inesperada do servidor.');
+    }
+  }
+
   List<dynamic> _extrairLista(dynamic body) {
     if (body is List) return body;
     if (body is Map<String, dynamic>) {
@@ -290,6 +330,13 @@ class ApiService {
     try {
       final data = jsonDecode(body);
       final erro = data is Map ? data['error'] : null;
+      // Erro de validação: a mensagem útil vem em `details` (ex.: senha curta).
+      final detalhes = erro is Map ? erro['details'] : null;
+      if (detalhes is List && detalhes.isNotEmpty) {
+        final d = detalhes.first;
+        final dm = d is Map ? d['message'] : null;
+        if (dm is String && dm.isNotEmpty) return dm;
+      }
       final m = erro is Map ? erro['message'] : null;
       if (m is String && m.isNotEmpty) return m;
     } catch (_) {}

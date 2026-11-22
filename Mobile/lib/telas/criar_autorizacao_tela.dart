@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../tema.dart';
 
-const _corErro = Color(0xFFB3261E);
-
 const _rotulosTipo = {
   'BUILDING': 'Edifício',
   'GATEHOUSE': 'Portaria',
@@ -15,7 +13,19 @@ const _rotulosTipo = {
 class CriarAutorizacaoTela extends StatefulWidget {
   final ApiService apiService;
 
-  const CriarAutorizacaoTela({super.key, required this.apiService});
+  /// Indica se esta aba está visível. Ao voltar para ela, recarrega
+  /// condôminos e locais (podem ter sido cadastrados na aba "Cadastros").
+  final bool ativa;
+
+  /// Chamado depois que a autorização é criada com sucesso.
+  final VoidCallback? onCriada;
+
+  const CriarAutorizacaoTela({
+    super.key,
+    required this.apiService,
+    this.ativa = true,
+    this.onCriada,
+  });
 
   @override
   State<CriarAutorizacaoTela> createState() => _CriarAutorizacaoTelaState();
@@ -28,9 +38,14 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
   final _horarioInicial = TextEditingController();
   final _horarioFinal = TextEditingController();
   final _usos = TextEditingController();
+  final _nome = TextEditingController();
+  final _email = TextEditingController();
+  final _senha = TextEditingController();
+  final _nfc = TextEditingController();
 
   bool _visitante = false;
   bool _carregando = true;
+  bool _enviando = false;
   String? _erroCarga;
 
   List<Pessoa> _condominos = [];
@@ -43,10 +58,28 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
   TimeOfDay? _horaInicial;
   TimeOfDay? _horaFinal;
 
+  // Muda quando os dropdowns precisam ser recriados (limpar o formulário ou
+  // quando a opção escolhida deixou de existir).
+  int _versao = 0;
+
+  // Visitante com tag NFC: é cadastrado antes da autorização. Se a criação da
+  // autorização falhar depois disso, guarda o cadastro para a nova tentativa
+  // não dar "e-mail já cadastrado".
+  String? _visitanteChave;
+  String? _visitanteCriadoId;
+
   @override
   void initState() {
     super.initState();
     _carregar();
+  }
+
+  @override
+  void didUpdateWidget(CriarAutorizacaoTela antigo) {
+    super.didUpdateWidget(antigo);
+    if (widget.ativa && !antigo.ativa && !_carregando && !_enviando) {
+      _carregar(silencioso: true);
+    }
   }
 
   @override
@@ -56,14 +89,22 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
     _horarioInicial.dispose();
     _horarioFinal.dispose();
     _usos.dispose();
+    _nome.dispose();
+    _email.dispose();
+    _senha.dispose();
+    _nfc.dispose();
     super.dispose();
   }
 
-  Future<void> _carregar() async {
-    setState(() {
-      _carregando = true;
-      _erroCarga = null;
-    });
+  /// Busca condôminos e locais. No modo [silencioso] não mostra o carregando
+  /// nem o erro: mantém o que já estava na tela.
+  Future<void> _carregar({bool silencioso = false}) async {
+    if (!silencioso) {
+      setState(() {
+        _carregando = true;
+        _erroCarga = null;
+      });
+    }
     try {
       final r = await Future.wait<Object>([
         widget.apiService.listarUsuarios('RESIDENT'),
@@ -73,16 +114,26 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
       setState(() {
         _condominos = r[0] as List<Pessoa>;
         _locais = r[1] as List<Local>;
+        // Opção escolhida que não existe mais: limpa e recria o dropdown.
+        if (!_condominos.any((p) => p.id == _condominoId)) {
+          _condominoId = null;
+          _versao++;
+        }
+        if (!_locais.any((l) => l.id == _localId)) {
+          _localId = null;
+          _versao++;
+        }
         _carregando = false;
+        _erroCarga = null;
       });
     } on ApiException catch (e) {
-      if (!mounted) return;
+      if (!mounted || silencioso) return;
       setState(() {
         _erroCarga = e.message;
         _carregando = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || silencioso) return;
       setState(() {
         _erroCarga = 'Erro inesperado ao carregar os dados.';
         _carregando = false;
@@ -100,6 +151,8 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
       '${d.year.toString().padLeft(4, '0')}-${_dd(d.month)}-${_dd(d.day)}';
 
   String _hhmm(TimeOfDay h) => '${_dd(h.hour)}:${_dd(h.minute)}';
+
+  int _minutos(TimeOfDay h) => h.hour * 60 + h.minute;
 
   // ---------- seleção de datas e horários ----------
 
@@ -145,7 +198,7 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
     });
   }
 
-  // ---------- validações ----------
+  // ---------- validações (espelham as regras da API) ----------
 
   String? _validarDataInicio(String? v) =>
       _inicio == null ? 'Informe a data de início' : null;
@@ -155,42 +208,164 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
     if (_inicio != null && _fim!.isBefore(_inicio!)) {
       return 'Não pode ser antes do início';
     }
+    final hoje = DateTime.now();
+    if (_fim!.isBefore(DateTime(hoje.year, hoje.month, hoje.day))) {
+      return 'Essa data já passou';
+    }
     return null;
   }
 
   String? _validarHorarioInicial(String? v) =>
       _horaInicial == null ? 'Informe o horário inicial' : null;
 
-  String? _validarHorarioFinal(String? v) =>
-      _horaFinal == null ? 'Informe o horário final' : null;
+  String? _validarHorarioFinal(String? v) {
+    if (_horaFinal == null) return 'Informe o horário final';
+    if (_horaInicial != null &&
+        _minutos(_horaFinal!) <= _minutos(_horaInicial!)) {
+      return 'Precisa ser depois do inicial';
+    }
+    return null;
+  }
 
   String? _validarUsos(String? v) {
     final t = (v ?? '').trim();
     if (t.isEmpty) return null; // sem limite
     final n = int.tryParse(t);
     if (n == null || n < 1) return 'Informe um número inteiro maior que zero';
+    if (n > 10000) return 'O máximo é 10000 utilizações';
     return null;
   }
 
-  /// Dados da autorização, prontos para enviar à API.
-  /// TODO (conectar à API): confirmar os nomes dos campos com o schema de criação de autorização.
-  Map<String, dynamic> _montarDados() {
+  String? _validarNome(String? v) =>
+      (v ?? '').trim().length < 2 ? 'Informe o nome' : null;
+
+  String? _validarEmail(String? v) {
+    final t = (v ?? '').trim();
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(t)) {
+      return 'E-mail inválido';
+    }
+    return null;
+  }
+
+  String? _validarSenha(String? v) =>
+      (v ?? '').length < 8 ? 'A senha precisa ter ao menos 8 caracteres' : null;
+
+  String? _validarNfc(String? v) {
+    final t = (v ?? '').trim();
+    if (t.isEmpty) return null; // opcional
+    final hex = t.replaceAll(RegExp(r'[\s:-]'), '').toUpperCase();
+    if (!RegExp(r'^([0-9A-F]{8}|[0-9A-F]{14}|[0-9A-F]{20})$').hasMatch(hex)) {
+      return 'Código inválido (ex.: 04:A1:B2:C3)';
+    }
+    return null;
+  }
+
+  // ---------- envio ----------
+
+  /// Dados da autorização, prontos para o POST /authorizations.
+  ///
+  /// Condômino: manda `userId`. Visitante novo sem tag NFC: manda `visitor`
+  /// (a API cadastra o visitante junto). Visitante novo com tag NFC: a API só
+  /// aceita `nfcUid` em POST /users, então cadastra antes e manda `userId`.
+  Future<Map<String, dynamic>> _montarDados() async {
     final usos = int.tryParse(_usos.text.trim());
-    return {
-      'userId': _condominoId,
+    final dados = <String, dynamic>{
       'locationId': _localId,
       'startDate': _dataIso(_inicio!),
       'endDate': _dataIso(_fim!),
       'startTime': _hhmm(_horaInicial!),
       'endTime': _hhmm(_horaFinal!),
-      'maxUses': usos,
+      if (usos != null) 'maxUses': usos,
     };
+
+    if (!_visitante) {
+      dados['userId'] = _condominoId;
+      return dados;
+    }
+
+    final nome = _nome.text.trim();
+    final email = _email.text.trim().toLowerCase();
+    final senha = _senha.text;
+    final nfc = _nfc.text.trim();
+
+    if (nfc.isEmpty) {
+      dados['visitor'] = {'name': nome, 'email': email, 'password': senha};
+      return dados;
+    }
+
+    final chave = '$email|$nfc';
+    if (_visitanteChave != chave || _visitanteCriadoId == null) {
+      _visitanteCriadoId = await widget.apiService.criarVisitante(
+        nome: nome,
+        email: email,
+        senha: senha,
+        nfcUid: nfc,
+      );
+      _visitanteChave = chave;
+    }
+    dados['userId'] = _visitanteCriadoId;
+    return dados;
   }
 
-  void _criar() {
+  Future<void> _criar() async {
+    if (_enviando) return;
     if (!_chave.currentState!.validate()) return;
-    // TODO (conectar à API): enviar _montarDados() para a rota de criação de autorizações,
-    // mostrar mensagem de sucesso/erro e limpar o formulário.
+
+    setState(() => _enviando = true);
+    try {
+      final dados = await _montarDados();
+      await widget.apiService.criarAutorizacao(dados);
+      if (!mounted) return;
+      _mensagem('Autorização criada com sucesso.');
+      _limpar();
+      widget.onCriada?.call();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      _mensagem(e.message, erro: true);
+    } catch (_) {
+      if (!mounted) return;
+      _mensagem('Erro inesperado. Tente novamente.', erro: true);
+    } finally {
+      if (mounted) setState(() => _enviando = false);
+    }
+  }
+
+  void _limpar() {
+    _dataInicio.clear();
+    _dataTermino.clear();
+    _horarioInicial.clear();
+    _horarioFinal.clear();
+    _usos.clear();
+    _nome.clear();
+    _email.clear();
+    _senha.clear();
+    _nfc.clear();
+    setState(() {
+      _condominoId = null;
+      _localId = null;
+      _inicio = null;
+      _fim = null;
+      _horaInicial = null;
+      _horaFinal = null;
+      _visitanteChave = null;
+      _visitanteCriadoId = null;
+      _versao++;
+    });
+    // Tira as mensagens de erro de validação que ficaram nos campos.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _chave.currentState?.reset(),
+    );
+  }
+
+  void _mensagem(String texto, {bool erro = false}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(texto),
+          backgroundColor: erro ? Cores.erro : Cores.ok,
+        ),
+      );
   }
 
   // ---------- widgets ----------
@@ -211,6 +386,7 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
 
   Widget _seletorCondomino() {
     return DropdownButtonFormField<String>(
+      key: ValueKey('condomino-$_versao'),
       isExpanded: true,
       initialValue: _condominoId,
       hint: Text(
@@ -232,6 +408,7 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
 
   Widget _seletorLocal() {
     return DropdownButtonFormField<String>(
+      key: ValueKey('local-$_versao'),
       isExpanded: true,
       initialValue: _localId,
       hint: Text(
@@ -252,19 +429,26 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
     );
   }
 
-  Widget _texto(
-    String rotulo, {
+  Widget _campoTexto(
+    String rotulo,
+    TextEditingController controller,
+    String? Function(String?) validator, {
     bool senha = false,
     TextInputType teclado = TextInputType.text,
+    String? ajuda,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _rotulo(rotulo),
-        TextField(
+        TextFormField(
+          controller: controller,
           obscureText: senha,
           keyboardType: teclado,
+          autocorrect: false,
+          validator: validator,
           style: const TextStyle(fontSize: 16, color: Cores.texto),
+          decoration: InputDecoration(helperText: ajuda),
         ),
       ],
     );
@@ -360,10 +544,20 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
             ),
           ),
           if (_visitante) ...[
-            _texto('Nome'),
-            _texto('E-mail', teclado: TextInputType.emailAddress),
-            _texto('Senha', senha: true),
-            _texto('Código da tag NFC'),
+            _campoTexto('Nome', _nome, _validarNome),
+            _campoTexto(
+              'E-mail',
+              _email,
+              _validarEmail,
+              teclado: TextInputType.emailAddress,
+            ),
+            _campoTexto('Senha', _senha, _validarSenha, senha: true),
+            _campoTexto(
+              'Código da tag NFC',
+              _nfc,
+              _validarNfc,
+              ajuda: 'Opcional',
+            ),
           ] else ...[
             const SizedBox(height: 12),
             _seletorCondomino(),
@@ -410,8 +604,17 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
           ),
           const SizedBox(height: 12),
           ElevatedButton(
-            onPressed: _criar,
-            child: const Text('Criar autorização'),
+            onPressed: _enviando ? null : _criar,
+            child: _enviando
+                ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Criar autorização'),
           ),
         ],
       ),
@@ -433,7 +636,7 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
             Text(
               _erroCarga!,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, color: _corErro),
+              style: const TextStyle(fontSize: 16, color: Cores.erro),
             ),
             const SizedBox(height: 12),
             OutlinedButton(
