@@ -6,10 +6,14 @@ class ResultadoAcessoTela extends StatelessWidget {
   final bool liberado;
   final VoidCallback onVoltar;
 
+  /// Explicação vinda da decisão do backend (ex.: motivo da negação). Sem ela, usa o texto padrão.
+  final String? detalhe;
+
   const ResultadoAcessoTela({
     super.key,
     required this.liberado,
     required this.onVoltar,
+    this.detalhe,
   });
 
   @override
@@ -48,16 +52,17 @@ class ResultadoAcessoTela extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               if (liberado)
-                const Text(
-                  'Pode passar pela catraca.',
+                Text(
+                  detalhe ?? 'Pode passar pela catraca.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Cores.mudo),
+                  style: const TextStyle(fontSize: 16, color: Cores.mudo),
                 )
               else ...[
-                const Text(
-                  'Autorização inválida, expirada, cancelada ou não autorizada.',
+                Text(
+                  detalhe ??
+                      'Autorização inválida, expirada, cancelada ou não autorizada.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Cores.mudo),
+                  style: const TextStyle(fontSize: 16, color: Cores.mudo),
                 ),
                 const SizedBox(height: 4),
                 const Text(

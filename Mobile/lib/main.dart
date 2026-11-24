@@ -110,7 +110,11 @@ class _PrincipalState extends State<Principal> {
     }
     return [
       MinhasAutorizacoesTela(apiService: _apiService, onLogout: _sair),
-      LerQrTela(apiService: _apiService),
+      LerQrTela(
+        apiService: _apiService,
+        ativa: _aba == 1,
+        onSessaoExpirada: _sair,
+      ),
     ];
   }
 

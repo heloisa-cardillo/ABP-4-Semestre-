@@ -36,6 +36,10 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.2.0
   shared_preferences: ^2.2.2
+  # Leitura do QR Code do terminal (US7)
+  mobile_scanner: ^7.0.0
+  # Posição do celular enviada junto com o QR (US7)
+  geolocator: ^14.0.0
 
 dev_dependencies:
   flutter_test:
