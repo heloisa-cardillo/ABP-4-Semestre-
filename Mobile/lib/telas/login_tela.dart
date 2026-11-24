@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../tema.dart';
+import '../services/acessibilidade_service.dart';
+import '../widgets/controle_fonte.dart';
 
 enum Perfil { condomino, visitante, administrador }
 
@@ -9,7 +11,11 @@ class LoginTela extends StatefulWidget {
   final ApiService apiService;
   final void Function(Perfil perfil) onEntrar;
 
-  const LoginTela({super.key, required this.apiService, required this.onEntrar});
+  const LoginTela({
+    super.key,
+    required this.apiService,
+    required this.onEntrar,
+  });
 
   @override
   State<LoginTela> createState() => _LoginTelaState();
@@ -24,7 +30,6 @@ class _LoginTelaState extends State<LoginTela> {
 
   bool get _admin => _escolhido == Perfil.administrador;
 
-  /// Perfil do app (da escolha na tela) -> `role` devolvido pela API.
   String get _roleEsperada {
     switch (_escolhido) {
       case Perfil.visitante:
@@ -118,7 +123,9 @@ class _LoginTelaState extends State<LoginTela> {
       ),
       const SizedBox(height: 12),
       OutlinedButton(
-        onPressed: _carregando ? null : () => setState(() => _escolhido = null),
+        onPressed: _carregando
+            ? null
+            : () => setState(() => _escolhido = null),
         child: const Text('Voltar'),
       ),
     ];
@@ -145,10 +152,11 @@ class _LoginTelaState extends State<LoginTela> {
       );
 
       if (sucesso && widget.apiService.userProfile != _roleEsperada) {
-        // Credenciais válidas, mas a conta é de outro perfil.
         await widget.apiService.logout();
         if (mounted) {
-          setState(() => _erro = 'Esta conta não pertence ao perfil selecionado');
+          setState(
+            () => _erro = 'Esta conta não pertence ao perfil selecionado',
+          );
         }
       } else if (sucesso && mounted) {
         widget.onEntrar(_escolhido!);
@@ -177,52 +185,62 @@ class _LoginTelaState extends State<LoginTela> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 84,
-                    height: 84,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Cores.azul,
-                      borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          children: [
+            Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 84,
+                        height: 84,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Cores.azul,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: const Text(
+                          '\u{1F512}',
+                          style: TextStyle(fontSize: 38),
+                        ),
+                      ),
                     ),
-                    child: const Text(
-                      '\u{1F512}',
-                      style: TextStyle(fontSize: 38),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Controle de Acesso',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Cores.azul,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Entre para continuar',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: Cores.mudo),
+                    ),
+                    const SizedBox(height: 20),
+                    if (_escolhido == null)
+                      ..._escolhaPerfil()
+                    else
+                      ..._formulario(),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Controle de Acesso',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Cores.azul,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Entre para continuar',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Cores.mudo),
-                ),
-                const SizedBox(height: 20),
-                if (_escolhido == null)
-                  ..._escolhaPerfil()
-                else
-                  ..._formulario(),
-              ],
+              ),
             ),
-          ),
+
+            Positioned(
+              top: 4,
+              right: 8,
+              child: ControleFonte(servico: acessibilidade),
+            ),
+          ],
         ),
       ),
     );
