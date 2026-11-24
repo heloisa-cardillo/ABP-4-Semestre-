@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-/// Câmera lendo QR Codes. Só fica ligada enquanto [ativo] for verdadeiro: a tela de leitura
+/// Câmera lendo QR Codes, com zoom por pinça e por controle deslizante. Só fica ligada enquanto [ativo] for verdadeiro: a tela de leitura
 /// vive num `IndexedStack` e continua montada quando a pessoa troca de aba.
 class LeitorQrCamera extends StatefulWidget {
   final bool ativo;
@@ -27,6 +27,12 @@ class _LeitorQrCameraState extends State<LeitorQrCamera>
     autoStart: false,
     formats: const [BarcodeFormat.qrCode],
   );
+
+  /// Zoom atual, de 0 (sem zoom) a 1 (zoom máximo da câmera).
+  double _zoom = 0;
+
+  /// Zoom no começo do gesto de pinça, para somar a variação do gesto a ele.
+  double _zoomNoInicioDaPinca = 0;
 
   @override
   void initState() {
@@ -60,6 +66,8 @@ class _LeitorQrCameraState extends State<LeitorQrCamera>
   Future<void> _iniciar() async {
     try {
       await _controller.start();
+      // Ao religar (troca de aba, app em segundo plano) a câmera volta sem zoom.
+      if (_zoom > 0) await _aplicarZoom(_zoom);
     } catch (_) {
       // O erro (permissão negada, sem câmera...) fica em `_controller.value.error`
       // e aparece no `errorBuilder`.
@@ -72,6 +80,17 @@ class _LeitorQrCameraState extends State<LeitorQrCamera>
     } catch (_) {}
   }
 
+  Future<void> _aplicarZoom(double zoom) async {
+    final valor = zoom.clamp(0.0, 1.0).toDouble();
+    if (mounted) setState(() => _zoom = valor);
+    if (!_controller.value.isRunning) return;
+    try {
+      await _controller.setZoomScale(valor);
+    } catch (_) {
+      // Câmera sem suporte a zoom ou desligando: o leitor segue funcionando sem ele.
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -81,17 +100,50 @@ class _LeitorQrCameraState extends State<LeitorQrCamera>
 
   @override
   Widget build(BuildContext context) {
-    return MobileScanner(
-      controller: _controller,
-      onDetect: (capture) {
-        if (!widget.ativo) return;
-        final texto = capture.barcodes.firstOrNull?.rawValue;
-        if (texto != null && texto.isNotEmpty) widget.onCodigo(texto);
-      },
-      errorBuilder: (context, error) => _ErroCamera(
-        mensagem: _mensagemDoErro(error),
-        onTentarDeNovo: _iniciar,
-      ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Pinça com dois dedos sobre a imagem da câmera ajusta o zoom.
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onScaleStart: (_) => _zoomNoInicioDaPinca = _zoom,
+          onScaleUpdate: (detalhes) {
+            if (detalhes.pointerCount < 2) return;
+            unawaited(
+              _aplicarZoom(zoomDaPinca(_zoomNoInicioDaPinca, detalhes.scale)),
+            );
+          },
+          child: MobileScanner(
+            controller: _controller,
+            onDetect: (capture) {
+              if (!widget.ativo) return;
+              final texto = capture.barcodes.firstOrNull?.rawValue;
+              if (texto != null && texto.isNotEmpty) widget.onCodigo(texto);
+            },
+            errorBuilder: (context, error) => _ErroCamera(
+              mensagem: _mensagemDoErro(error),
+              onTentarDeNovo: _iniciar,
+            ),
+          ),
+        ),
+        // O controle só aparece com a câmera rodando (some na tela de erro).
+        ValueListenableBuilder<MobileScannerState>(
+          valueListenable: _controller,
+          builder: (context, estado, _) {
+            if (!estado.isRunning) return const SizedBox.shrink();
+            return Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: ControleZoom(
+                  zoom: _zoom,
+                  onZoom: (zoom) => unawaited(_aplicarZoom(zoom)),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -104,6 +156,62 @@ class _LeitorQrCameraState extends State<LeitorQrCamera>
       default:
         return 'Não foi possível abrir a câmera.';
     }
+  }
+}
+
+/// Converte o gesto de pinça em zoom: abrir os dedos até o dobro da distância inicial
+/// soma metade do zoom máximo; fechar diminui na mesma proporção. Sempre entre 0 e 1.
+double zoomDaPinca(double zoomInicial, double escalaDoGesto) {
+  return (zoomInicial + (escalaDoGesto - 1) * 0.5).clamp(0.0, 1.0).toDouble();
+}
+
+/// Barra de zoom do leitor: botões de menos/mais e um controle deslizante de 0 a 1.
+class ControleZoom extends StatelessWidget {
+  /// Quanto cada toque em "-" ou "+" muda o zoom.
+  static const passo = 0.1;
+
+  final double zoom;
+  final ValueChanged<double> onZoom;
+
+  const ControleZoom({super.key, required this.zoom, required this.onZoom});
+
+  @override
+  Widget build(BuildContext context) {
+    final atual = zoom.clamp(0.0, 1.0).toDouble();
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0x99000000),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Diminuir zoom',
+            icon: const Icon(Icons.zoom_out, color: Colors.white),
+            onPressed: atual <= 0
+                ? null
+                : () => onZoom((atual - passo).clamp(0.0, 1.0).toDouble()),
+          ),
+          Expanded(
+            child: Slider(
+              value: atual,
+              onChanged: onZoom,
+              activeColor: Colors.white,
+              inactiveColor: const Color(0x66FFFFFF),
+              semanticFormatterCallback: (valor) =>
+                  'Zoom ${(valor * 100).round()}%',
+            ),
+          ),
+          IconButton(
+            tooltip: 'Aumentar zoom',
+            icon: const Icon(Icons.zoom_in, color: Colors.white),
+            onPressed: atual >= 1
+                ? null
+                : () => onZoom((atual + passo).clamp(0.0, 1.0).toDouble()),
+          ),
+        ],
+      ),
+    );
   }
 }
 
