@@ -1,4 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Chamadas à API. O manifesto de debug já tinha; sem esta linha o APK de release fica sem rede. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Leitura do QR Code do terminal (US7). -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <!-- Posição do celular enviada junto com o QR, para conferir a distância até a catraca (US7). -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
         android:label="controle_acesso"
         android:name="${applicationName}"

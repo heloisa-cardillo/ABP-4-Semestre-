@@ -7,12 +7,19 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-static const String _baseUrl = String.fromEnvironment(
+  // Para apontar para outro servidor sem mexer no código, rode com:
+  //   --dart-define=API_URL=http://localhost:3000/api/v1
+  static const String _baseUrl = String.fromEnvironment(
     'API_URL',
     defaultValue: 'https://controle-acesso-api-homolog.onrender.com/api/v1',
   );
   static const String _tokenKey = 'auth_token';
   static const String _userProfileKey = 'user_profile';
+
+  /// Cliente HTTP das chamadas autenticadas. Os testes passam um `MockClient`.
+  final http.Client _client;
+
+  ApiService({http.Client? client}) : _client = client ?? http.Client();
 
   String? _token;
   String? _userProfile;
@@ -249,6 +256,42 @@ static const String _baseUrl = String.fromEnvironment(
     }
   }
 
+  // ---------- Acesso por QR Code (US7) ----------
+
+  /// Envia o texto lido do QR Code do terminal e a posição atual do celular.
+  ///
+  /// Acesso negado não é erro: vem uma [DecisaoAcesso] com `liberado == false` e o motivo.
+  /// Lança [ApiException] em 400 (código ou posição inválidos), 401 (sessão expirada),
+  /// falta de rede e erro do servidor.
+  Future<DecisaoAcesso> validarQrCode({
+    required String codigo,
+    required double latitude,
+    required double longitude,
+  }) async {
+    final body = await _chamar(
+      'POST',
+      '/access/qr',
+      corpo: {'code': codigo, 'latitude': latitude, 'longitude': longitude},
+    );
+    try {
+      return DecisaoAcesso.fromJson(body as Map<String, dynamic>);
+    } catch (_) {
+      throw const ApiException('Resposta inesperada do servidor.');
+    }
+  }
+
+  /// Acorda o servidor (o plano gratuito do Render dorme). O QR vale só 10 segundos,
+  /// então convém chamar isto quando a tela de leitura abre, antes de ler o código.
+  Future<void> acordarServidor() async {
+    try {
+      await _client
+          .get(Uri.parse('$_baseUrl/health'))
+          .timeout(const Duration(seconds: 30));
+    } catch (_) {
+      // Só aquecimento: se falhar, a leitura em si mostra o erro.
+    }
+  }
+
   List<dynamic> _extrairLista(dynamic body) {
     if (body is List) return body;
     if (body is Map<String, dynamic>) {
@@ -276,7 +319,7 @@ static const String _baseUrl = String.fromEnvironment(
     try {
       final request = http.Request(metodo, uri)..headers.addAll(authHeaders);
       if (corpo != null) request.body = jsonEncode(corpo);
-      final streamed = await request.send().timeout(
+      final streamed = await _client.send(request).timeout(
         const Duration(seconds: 30),
       );
       response = await http.Response.fromStream(streamed);
@@ -358,6 +401,75 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// Formato do texto do QR Code de um terminal: 25 caracteres de base32 Crockford
+/// (dígitos e maiúsculas, sem I, L, O e U). Igual a `QR_CODE_PATTERN` do backend.
+final qrCodeTerminalPattern = RegExp(r'^[0-9A-HJKMNP-TV-Z]{25}$');
+
+/// Resposta de `POST /access/qr`.
+class DecisaoAcesso {
+  final bool liberado;
+
+  /// Motivo da negação (`OUT_OF_RANGE`, `EXPIRED_CREDENTIAL`...). Nulo quando liberou.
+  final String? motivo;
+
+  /// Texto curto do backend, sem acento (feito para o display do terminal).
+  final String mensagem;
+  final double? distanciaMetros;
+
+  const DecisaoAcesso({
+    required this.liberado,
+    required this.motivo,
+    required this.mensagem,
+    this.distanciaMetros,
+  });
+
+  factory DecisaoAcesso.fromJson(Map<String, dynamic> json) {
+    return DecisaoAcesso(
+      liberado: json['result'] == 'GRANTED',
+      motivo: json['denyReason'] as String?,
+      mensagem: json['message'] as String? ?? '',
+      distanciaMetros: (json['distanceMeters'] as num?)?.toDouble(),
+    );
+  }
+
+  /// Explicação para a pessoa, com acento. Cai na mensagem do backend se o motivo for novo.
+  String get motivoTexto {
+    switch (motivo) {
+      case null:
+        return 'Pode passar pela catraca.';
+      case 'INVALID_CREDENTIAL':
+        return 'Este QR Code não foi gerado por um terminal de acesso.';
+      case 'EXPIRED_CREDENTIAL':
+        return 'O QR Code expirou. Leia o código que está na tela do terminal agora.';
+      case 'CREDENTIAL_ALREADY_USED':
+        return 'Este QR Code já foi usado. Aguarde o próximo código no terminal.';
+      case 'UNKNOWN_USER':
+        return 'Usuário não identificado.';
+      case 'USER_INACTIVE':
+        return 'Seu cadastro está inativo. Procure a administração.';
+      case 'TERMINAL_INACTIVE':
+        return 'Este terminal está desativado.';
+      case 'NO_AUTHORIZATION':
+        return 'Você não tem autorização para este local.';
+      case 'AUTHORIZATION_CANCELLED':
+        return 'Sua autorização para este local foi cancelada.';
+      case 'OUTSIDE_DATE_RANGE':
+        return 'Hoje está fora do período da sua autorização.';
+      case 'OUTSIDE_TIME_WINDOW':
+        return 'Agora está fora do horário da sua autorização.';
+      case 'USAGE_LIMIT_REACHED':
+        return 'Sua autorização já atingiu o limite de usos.';
+      case 'OUT_OF_RANGE':
+        final d = distanciaMetros;
+        return d == null
+            ? 'Não foi possível confirmar que você está perto da catraca.'
+            : 'Você está a ${d.round()} m da catraca. Chegue mais perto (até 100 m).';
+      default:
+        return mensagem.isNotEmpty ? mensagem : 'Acesso negado.';
+    }
+  }
 }
 
 /// Uma página de autorizações + total geral (vem de `meta.total` da API).

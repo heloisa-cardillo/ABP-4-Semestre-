@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>A câmera é usada para ler o QR Code exibido no terminal de acesso.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Sua localização é enviada junto com o QR Code para confirmar que você está perto da catraca.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
