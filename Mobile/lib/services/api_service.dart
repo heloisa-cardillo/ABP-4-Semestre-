@@ -280,6 +280,30 @@ class ApiService {
     }
   }
 
+    /// Histórico de tentativas de acesso (GET /access-events). Só administrador.
+  /// [resultado] é `GRANTED`, `DENIED` ou nulo para todas.
+  Future<HistoricoPage> listarHistorico({
+    String? resultado,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    final query = <String, String>{
+      'page': '$page',
+      'pageSize': '$pageSize',
+    };
+    if (resultado != null) query['result'] = resultado;
+
+    final body = await _chamar('GET', '/access-events', query: query);
+    final items = _extrairLista(body)
+        .map((j) => AcessoEvento.fromJson(j as Map<String, dynamic>))
+        .toList();
+    final meta = body is Map<String, dynamic>
+        ? body['meta'] as Map<String, dynamic>?
+        : null;
+    final total = (meta?['total'] as num?)?.toInt() ?? items.length;
+    return HistoricoPage(items: items, total: total);
+  }
+
   /// Acorda o servidor (o plano gratuito do Render dorme). O QR vale só 10 segundos,
   /// então convém chamar isto quando a tela de leitura abre, antes de ler o código.
   Future<void> acordarServidor() async {
@@ -688,6 +712,59 @@ class Local {
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       parentId: json['parentId'] as String?,
+    );
+  }
+}
+
+/// Uma página do histórico + total geral.
+class HistoricoPage {
+  final List<AcessoEvento> items;
+  final int total;
+
+  const HistoricoPage({required this.items, required this.total});
+}
+
+/// Uma tentativa de acesso (liberada ou negada).
+class AcessoEvento {
+  final String id;
+  final DateTime ocorreuEm;
+  final String method; // QR ou NFC
+  final String result; // GRANTED ou DENIED
+  final String? denyReason;
+  final String? nomePessoa;
+  final String? local;
+  final String? terminal;
+  final double? distanciaMetros;
+
+  const AcessoEvento({
+    required this.id,
+    required this.ocorreuEm,
+    required this.method,
+    required this.result,
+    this.denyReason,
+    this.nomePessoa,
+    this.local,
+    this.terminal,
+    this.distanciaMetros,
+  });
+
+  bool get liberado => result == 'GRANTED';
+
+  factory AcessoEvento.fromJson(Map<String, dynamic> json) {
+    final user = json['user'] as Map<String, dynamic>?;
+    final location = json['location'] as Map<String, dynamic>?;
+    final terminal = json['terminal'] as Map<String, dynamic>?;
+    return AcessoEvento(
+      id: json['id'] as String,
+      // A API manda UTC; converte para o horário do celular.
+      ocorreuEm: DateTime.parse(json['occurredAt'] as String).toLocal(),
+      method: json['method'] as String,
+      result: json['result'] as String,
+      denyReason: json['denyReason'] as String?,
+      nomePessoa: user?['name'] as String?,
+      local: location?['name'] as String?,
+      terminal: terminal?['name'] as String?,
+      distanciaMetros: (json['distanceMeters'] as num?)?.toDouble(),
     );
   }
 }
