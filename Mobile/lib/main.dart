@@ -9,8 +9,11 @@ import 'telas/ler_qr_tela.dart';
 import 'telas/login_tela.dart';
 import 'telas/minhas_autorizacoes_tela.dart';
 import 'telas/usuarios_locais_tela.dart';
+import 'services/acessibilidade_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await acessibilidade.carregar();
   runApp(const ControleAcessoApp());
 }
 
@@ -18,14 +21,23 @@ class ControleAcessoApp extends StatelessWidget {
   const ControleAcessoApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Controle de Acesso',
-      debugShowCheckedModeBanner: false,
-      theme: temaApp(),
-      home: const Principal(),
-    );
-  }
+Widget build(BuildContext context) {
+  return MaterialApp(
+    title: 'Controle de Acesso',
+    debugShowCheckedModeBanner: false,
+    theme: temaApp(),
+    builder: (context, child) => ListenableBuilder(
+      listenable: acessibilidade,
+      builder: (context, _) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(acessibilidade.escala),
+        ),
+        child: child!,
+      ),
+    ),
+    home: const Principal(),
+  );
+}
 }
 
 class Principal extends StatefulWidget {
