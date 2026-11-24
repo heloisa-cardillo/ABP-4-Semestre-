@@ -37,7 +37,7 @@ const ID = {
 };
 
 /** Coordenadas de demonstração em Jacareí/SP. */
-const SITE = { latitude: -23.305, longitude: -45.9658 };
+const SITE = { latitude: -23.3053, longitude: -45.9658 };
 
 async function main(): Promise<void> {
   const admin = await upsertUser('Administrador', adminEmail, adminPassword, Role.ADMIN);
