@@ -118,9 +118,11 @@ class _PrincipalState extends State<Principal> {
         AutorizacoesAdminTela(
           key: ValueKey('autorizacoes-$_versaoDados'),
           apiService: _apiService,
+          onLogout: _sair,
         ),
         CriarAutorizacaoTela(
           apiService: _apiService,
+          onLogout: _sair,
           ativa: _aba == 1,
           onCriada: () => setState(() {
             _versaoDados++;
@@ -130,8 +132,12 @@ class _PrincipalState extends State<Principal> {
         UsuariosLocaisTela(
           key: ValueKey('cadastros-$_versaoDados'),
           apiService: _apiService,
+          onLogout: _sair,
         ),
-        HistoricoTela(apiService: _apiService),
+        HistoricoTela(
+          apiService: _apiService,
+          onLogout: _sair,
+        ),
       ];
     }
     return [

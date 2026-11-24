@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../tema.dart';
+import '../widgets/cabecalho_tela.dart';
 
 const _corErro = Color(0xFFB3261E);
 
@@ -29,8 +30,14 @@ String? _rotuloDoTipo(String? valor) {
 
 class UsuariosLocaisTela extends StatefulWidget {
   final ApiService apiService;
+  final VoidCallback onLogout;
 
-  const UsuariosLocaisTela({super.key, required this.apiService});
+
+  const UsuariosLocaisTela({
+    super.key, 
+    required this.apiService,
+    required this.onLogout,
+});
 
   @override
   State<UsuariosLocaisTela> createState() => _UsuariosLocaisTelaState();
@@ -234,21 +241,9 @@ class _UsuariosLocaisTelaState extends State<UsuariosLocaisTela> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: double.infinity,
-          color: Cores.azul,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-          child: const SafeArea(
-            bottom: false,
-            child: Text(
-              'Cadastros',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
+        CabecalhoTela(
+          titulo: 'Cadastros',
+          onLogout: widget.onLogout,
         ),
         Expanded(
           child: RefreshIndicator(
