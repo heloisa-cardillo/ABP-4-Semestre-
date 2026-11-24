@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../tema.dart';
+import '../widgets/cabecalho_tela.dart';
 
 const _rotulosTipo = {
   'BUILDING': 'Edifício',
@@ -22,8 +23,14 @@ const _situacoes = <String?, String>{
 
 class AutorizacoesAdminTela extends StatefulWidget {
   final ApiService apiService;
+  final VoidCallback onLogout;
 
-  const AutorizacoesAdminTela({super.key, required this.apiService});
+
+  const AutorizacoesAdminTela({
+    super.key, 
+    required this.apiService,
+    required this.onLogout,
+});
 
   @override
   State<AutorizacoesAdminTela> createState() => _AutorizacoesAdminTelaState();
@@ -277,21 +284,9 @@ class _AutorizacoesAdminTelaState extends State<AutorizacoesAdminTela> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: double.infinity,
-          color: Cores.azul,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-          child: const SafeArea(
-            bottom: false,
-            child: Text(
-              'Autorizações',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
+        CabecalhoTela(
+          titulo: 'Autorizações',
+          onLogout: widget.onLogout,
         ),
         Expanded(
           child: RefreshIndicator(

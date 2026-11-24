@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../tema.dart';
+import '../widgets/cabecalho_tela.dart';
 
 const _rotulosTipo = {
   'BUILDING': 'Edifício',
@@ -12,6 +13,8 @@ const _rotulosTipo = {
 
 class CriarAutorizacaoTela extends StatefulWidget {
   final ApiService apiService;
+  final VoidCallback onLogout;
+
 
   /// Indica se esta aba está visível. Ao voltar para ela, recarrega
   /// condôminos e locais (podem ter sido cadastrados na aba "Cadastros").
@@ -23,6 +26,8 @@ class CriarAutorizacaoTela extends StatefulWidget {
   const CriarAutorizacaoTela({
     super.key,
     required this.apiService,
+    required this.onLogout,
+
     this.ativa = true,
     this.onCriada,
   });
@@ -654,21 +659,9 @@ class _CriarAutorizacaoTelaState extends State<CriarAutorizacaoTela> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: double.infinity,
-          color: Cores.azul,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-          child: const SafeArea(
-            bottom: false,
-            child: Text(
-              'Criar autorização',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
+        CabecalhoTela(
+          titulo: 'Criar autorização',
+          onLogout: widget.onLogout,
         ),
         Expanded(
           child: SingleChildScrollView(

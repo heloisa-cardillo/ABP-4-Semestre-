@@ -2,31 +2,25 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../tema.dart';
+import '../widgets/cabecalho_tela.dart';
 
 class HistoricoTela extends StatelessWidget {
   final ApiService apiService;
+  final VoidCallback onLogout;
 
-  const HistoricoTela({super.key, required this.apiService});
+  const HistoricoTela({
+    super.key,
+    required this.apiService,
+    required this.onLogout,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: double.infinity,
-          color: Cores.azul,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-          child: const SafeArea(
-            bottom: false,
-            child: Text(
-              'Histórico de acessos',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
+        CabecalhoTela(
+          titulo: 'Histórico de acessos',
+          onLogout: onLogout,
         ),
         const Expanded(
           child: Center(
