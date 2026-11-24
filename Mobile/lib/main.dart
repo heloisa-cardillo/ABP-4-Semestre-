@@ -47,6 +47,7 @@ class _PrincipalState extends State<Principal> {
   final _apiService = ApiService();
   Perfil? _perfil;
   int _aba = 0;
+  int _versaoDados = 0;
 
   bool get _admin => _perfil == Perfil.administrador;
 
@@ -102,9 +103,22 @@ class _PrincipalState extends State<Principal> {
   List<Widget> _telas() {
     if (_admin) {
       return [
-        AutorizacoesAdminTela(apiService: _apiService),
-        CriarAutorizacaoTela(apiService: _apiService),
-        UsuariosLocaisTela(apiService: _apiService),
+        AutorizacoesAdminTela(
+          key: ValueKey('autorizacoes-$_versaoDados'),
+          apiService: _apiService,
+        ),
+        CriarAutorizacaoTela(
+          apiService: _apiService,
+          ativa: _aba == 1,
+          onCriada: () => setState(() {
+            _versaoDados++;
+            _aba = 0;
+          }),
+        ),
+        UsuariosLocaisTela(
+          key: ValueKey('cadastros-$_versaoDados'),
+          apiService: _apiService,
+        ),
         HistoricoTela(apiService: _apiService),
       ];
     }
